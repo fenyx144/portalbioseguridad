@@ -1,0 +1,7 @@
+DirectoryIndex dist/index.html
+RewriteEngine On
+RewriteBase /bioseguridad/web/
+RewriteRule ^dist/ - [L]
+RewriteCond %{DOCUMENT_ROOT}/bioseguridad/web/dist/$1 -f
+RewriteRule ^(.+)$ dist/$1 [L]
+RewriteRule ^ dist/index.html [L]

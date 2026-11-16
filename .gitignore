@@ -1,0 +1,6 @@
+api/.env
+.env
+web/node_modules
+web/dist
+api/public/storage/personal/*
+!api/public/storage/personal/.gitkeep

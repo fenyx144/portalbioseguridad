@@ -1,0 +1,6 @@
+RewriteEngine On
+# Apache suele no pasar Authorization a PHP; necesario para auth móvil (Bearer).
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [QSA,L]
