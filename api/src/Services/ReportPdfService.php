@@ -7,6 +7,7 @@ namespace Bio\Api\Services;
 use Bio\Api\Repositories\GranjaRepository;
 use Bio\Api\Support\EmpresaEtiqueta;
 use Bio\Api\Support\MpdfFactory;
+use Bio\Api\Support\PdfTabla;
 use Bio\Api\Support\SessionAuth;
 use Bio\Api\Support\UserContext;
 use Mpdf\Mpdf;
@@ -32,13 +33,7 @@ final class ReportPdfService
         $grid = $result['data']['grid'] ?? [];
         $dias = $grid['dias'] ?? [];
         $filas = $grid['filas'] ?? [];
-        $granjaNombre = '';
-        foreach ((new GranjaRepository())->listar() as $g) {
-            if ($g['codigo'] === $granja) {
-                $granjaNombre = (string) $g['nombre'];
-                break;
-            }
-        }
+        $granjaNombre = (new GranjaRepository())->nombre($granja);
         $fin = (new \DateTimeImmutable($inicio))->modify('+6 days')->format('Y-m-d');
         $titulo = 'Planificación semanal — ' . ($granjaNombre !== '' ? $granjaNombre : $granja);
         $sub = $inicio . ' al ' . $fin;
@@ -101,7 +96,34 @@ final class ReportPdfService
         $hasta = $data['data']['hasta'] ?? '';
         $pdf = MpdfFactory::crear('L');
         $this->encabezado($pdf, 'Personal asignado por período', $desde . ' al ' . $hasta);
-        $pdf->WriteHTML($this->tablaAsignaciones($items));
+        $filas = [];
+        foreach ($items as $r) {
+            $nombre = trim((string) ($r['apellidos'] ?? '') . ', ' . (string) ($r['nombres'] ?? ''));
+            $granjaTxt = (string) ($r['granja_cod'] ?? '');
+            if (!empty($r['granja_nombre'])) {
+                $granjaTxt .= ' · ' . $r['granja_nombre'];
+            }
+            $filas[] = [
+                (string) ($r['fecha'] ?? ''),
+                (string) ($r['turno_cod'] ?? ''),
+                $granjaTxt,
+                (string) ($r['punto_nombre'] ?? ''),
+                (string) ($r['dni'] ?? ''),
+                $nombre,
+                (string) ($r['empresa_nombre'] ?? $r['empresa'] ?? ''),
+                !empty($r['es_reemplazo']) ? 'Sí' : '',
+            ];
+        }
+        PdfTabla::dibujar($pdf, [
+            ['titulo' => 'Fecha', 'peso' => 1.15],
+            ['titulo' => 'Turno', 'peso' => 0.8],
+            ['titulo' => 'Granja', 'peso' => 1.8],
+            ['titulo' => 'Punto', 'peso' => 1.6],
+            ['titulo' => 'DNI', 'peso' => 1.1],
+            ['titulo' => 'Nombre', 'peso' => 2.1],
+            ['titulo' => 'Empresa', 'peso' => 1.8],
+            ['titulo' => 'Reemplazo', 'peso' => 0.9],
+        ], $filas, 7);
 
         return $pdf;
     }
@@ -113,28 +135,25 @@ final class ReportPdfService
         $items = $data['data']['items'] ?? [];
         $pdf = MpdfFactory::crear('P');
         $this->encabezado($pdf, 'Personal registrado', 'Listado actual');
-        $html = '<table style="border-collapse:collapse;width:100%;font-size:8px;">';
-        $html .= '<thead><tr style="background:#2398C5;color:#fff;">';
-        foreach (['DNI', 'Apellidos y nombres', 'Cargo', 'Contratista', 'Estado', 'Granja base'] as $h) {
-            $html .= '<th style="border:1px solid #7CB3E7;padding:4px;text-align:left;">' . htmlspecialchars($h) . '</th>';
-        }
-        $html .= '</tr></thead><tbody>';
-        $n = 0;
+        $filas = [];
         foreach ($items as $r) {
-            $bg = $n % 2 === 0 ? '#ffffff' : '#AEE4E8';
-            $nombre = trim((string) ($r['apellidos'] ?? '') . ', ' . (string) ($r['nombres'] ?? ''));
-            $html .= '<tr style="background:' . $bg . ';">';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['dni'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars($nombre) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['cargo'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars(EmpresaEtiqueta::personal($r)) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['estado'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['granja_base_cod'] ?? '')) . '</td>';
-            $html .= '</tr>';
-            $n++;
+            $filas[] = [
+                (string) ($r['dni'] ?? ''),
+                trim((string) ($r['apellidos'] ?? '') . ', ' . (string) ($r['nombres'] ?? '')),
+                (string) ($r['cargo'] ?? ''),
+                EmpresaEtiqueta::personal($r),
+                (string) ($r['estado'] ?? ''),
+                (string) ($r['granja_base_cod'] ?? ''),
+            ];
         }
-        $html .= '</tbody></table>';
-        $pdf->WriteHTML($html);
+        PdfTabla::dibujar($pdf, [
+            ['titulo' => 'DNI', 'peso' => 1.2],
+            ['titulo' => 'Apellidos y nombres', 'peso' => 2.4],
+            ['titulo' => 'Cargo', 'peso' => 1.5],
+            ['titulo' => 'Contratista', 'peso' => 2],
+            ['titulo' => 'Estado', 'peso' => 0.9],
+            ['titulo' => 'Granja base', 'peso' => 1.1],
+        ], $filas, 8);
 
         return $pdf;
     }
@@ -162,42 +181,51 @@ final class ReportPdfService
             return strcmp($a['meta']['razon'], $b['meta']['razon']);
         });
 
-        $html = '';
         if ($porEmpresa === []) {
-            $html .= '<p style="font-size:9px;color:#64748B;">Sin movimientos de indumentaria registrados.</p>';
+            $pdf->SetFont('dejavusans', '', 9);
+            $pdf->SetTextColor(100, 116, 139);
+            $pdf->WriteCell(0, 6, 'Sin movimientos de indumentaria registrados.', 0, 1);
+            $pdf->SetTextColor(0, 0, 0);
+
+            return $pdf;
         }
+        $cols = [
+            ['titulo' => 'Código', 'peso' => 1.1],
+            ['titulo' => 'Insumo', 'peso' => 2.2],
+            ['titulo' => 'Ud.', 'peso' => 0.6],
+            ['titulo' => 'Saldo inicial', 'peso' => 1.1, 'align' => 'R'],
+            ['titulo' => 'Entregado', 'peso' => 1, 'align' => 'R'],
+            ['titulo' => 'Recibido', 'peso' => 1, 'align' => 'R'],
+            ['titulo' => 'Pendiente', 'peso' => 1, 'align' => 'R'],
+            ['titulo' => 'Consumido', 'peso' => 1, 'align' => 'R'],
+            ['titulo' => 'Stock', 'peso' => 0.9, 'align' => 'R'],
+            ['titulo' => 'Faltante', 'peso' => 0.9, 'align' => 'R'],
+        ];
         foreach ($porEmpresa as $bloque) {
             $meta = $bloque['meta'];
-            $filas = $bloque['items'];
-            $html .= '<h3 style="font-size:10px;margin:10px 0 4px;color:#164072;">'
-                . htmlspecialchars($meta['codigo'] . ' · ' . $meta['razon']) . '</h3>';
-            $html .= '<table style="border-collapse:collapse;width:100%;font-size:7px;margin-bottom:8px;">';
-            $html .= '<thead><tr style="background:#2398C5;color:#fff;">';
-            foreach (['Código', 'Insumo', 'Ud.', 'Saldo inicial', 'Entregado', 'Recibido', 'Pendiente', 'Consumido', 'Stock', 'Faltante'] as $h) {
-                $html .= '<th style="border:1px solid #7CB3E7;padding:3px;text-align:left;">' . htmlspecialchars($h) . '</th>';
-            }
-            $html .= '</tr></thead><tbody>';
-            $n = 0;
-            foreach ($filas as $r) {
-                $bg = $n % 2 === 0 ? '#ffffff' : '#AEE4E8';
+            $pdf->Ln(2);
+            $pdf->SetFont('dejavusans', 'B', 10);
+            $pdf->SetTextColor(22, 64, 114);
+            $pdf->Cell(0, 5, $meta['codigo'] . ' · ' . $meta['razon'], 0, 1, 'L');
+            $pdf->SetTextColor(0, 0, 0);
+            $filas = [];
+            foreach ($bloque['items'] as $r) {
                 $falt = (float) ($r['faltante'] ?? 0);
-                $faltStyle = $falt > 0 ? 'color:#b91c1c;font-weight:bold;' : '';
-                $html .= '<tr style="background:' . $bg . ';">';
-                $html .= '<td style="border:1px solid #7CB3E7;padding:2px;">' . htmlspecialchars((string) ($r['insumo_codigo'] ?? '')) . '</td>';
-                $html .= '<td style="border:1px solid #7CB3E7;padding:2px;">' . htmlspecialchars((string) ($r['insumo_nombre'] ?? '')) . '</td>';
-                $html .= '<td style="border:1px solid #7CB3E7;padding:2px;">' . htmlspecialchars((string) ($r['unidad'] ?? '')) . '</td>';
+                $fila = [
+                    (string) ($r['insumo_codigo'] ?? ''),
+                    (string) ($r['insumo_nombre'] ?? ''),
+                    (string) ($r['unidad'] ?? ''),
+                ];
                 foreach (['saldo_inicial', 'entregado', 'recibido', 'pendiente', 'consumido', 'stock'] as $c) {
-                    $html .= '<td style="border:1px solid #7CB3E7;padding:2px;text-align:right;">'
-                        . htmlspecialchars($this->fmtNum($r[$c] ?? 0)) . '</td>';
+                    $fila[] = $this->fmtNum($r[$c] ?? 0);
                 }
-                $html .= '<td style="border:1px solid #7CB3E7;padding:2px;text-align:right;' . $faltStyle . '">'
-                    . htmlspecialchars($this->fmtNum($falt)) . '</td>';
-                $html .= '</tr>';
-                $n++;
+                $fila[] = $falt > 0
+                    ? ['text' => $this->fmtNum($falt), 'color' => '#b91c1c', 'bold' => true]
+                    : $this->fmtNum($falt);
+                $filas[] = $fila;
             }
-            $html .= '</tbody></table>';
+            PdfTabla::dibujar($pdf, $cols, $filas, 7);
         }
-        $pdf->WriteHTML($html);
 
         return $pdf;
     }
@@ -209,28 +237,25 @@ final class ReportPdfService
         $items = $data['data']['items'] ?? [];
         $pdf = MpdfFactory::crear('L');
         $this->encabezado($pdf, 'Capacitaciones del personal', '');
-        $html = '<table style="border-collapse:collapse;width:100%;font-size:8px;">';
-        $html .= '<thead><tr style="background:#2398C5;color:#fff;">';
-        foreach (['DNI', 'Nombre', 'Tema', 'Fecha', 'Vigencia', 'Estado'] as $h) {
-            $html .= '<th style="border:1px solid #7CB3E7;padding:4px;text-align:left;">' . htmlspecialchars($h) . '</th>';
-        }
-        $html .= '</tr></thead><tbody>';
-        $n = 0;
+        $filas = [];
         foreach ($items as $r) {
-            $bg = $n % 2 === 0 ? '#ffffff' : '#AEE4E8';
-            $nombre = trim((string) ($r['apellidos'] ?? '') . ', ' . (string) ($r['nombres'] ?? ''));
-            $html .= '<tr style="background:' . $bg . ';">';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['dni'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars($nombre) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['cap_nombre'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['fecha_realizada'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['fecha_vence'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['estado_vigencia'] ?? '')) . '</td>';
-            $html .= '</tr>';
-            $n++;
+            $filas[] = [
+                (string) ($r['dni'] ?? ''),
+                trim((string) ($r['apellidos'] ?? '') . ', ' . (string) ($r['nombres'] ?? '')),
+                (string) ($r['cap_nombre'] ?? ''),
+                (string) ($r['fecha_realizada'] ?? ''),
+                (string) ($r['fecha_vence'] ?? ''),
+                (string) ($r['estado_vigencia'] ?? ''),
+            ];
         }
-        $html .= '</tbody></table>';
-        $pdf->WriteHTML($html);
+        PdfTabla::dibujar($pdf, [
+            ['titulo' => 'DNI', 'peso' => 1.1],
+            ['titulo' => 'Nombre', 'peso' => 2.2],
+            ['titulo' => 'Tema', 'peso' => 2.2],
+            ['titulo' => 'Fecha', 'peso' => 1.1],
+            ['titulo' => 'Vigencia', 'peso' => 1.1],
+            ['titulo' => 'Estado', 'peso' => 1.2],
+        ], $filas, 8);
 
         return $pdf;
     }
@@ -293,39 +318,5 @@ final class ReportPdfService
         $footer = $req > 0 ? '<br><span style="color:#64748B;font-size:6px;">' . $asig . '/' . $req . '</span>' : '';
 
         return $parts === [] ? '—' . $footer : implode('<br>', $parts) . $footer;
-    }
-
-    /** @param list<array<string, mixed>> $items */
-    private function tablaAsignaciones(array $items): string
-    {
-        $html = '<table style="border-collapse:collapse;width:100%;font-size:7px;">';
-        $html .= '<thead><tr style="background:#2398C5;color:#fff;">';
-        foreach (['Fecha', 'Turno', 'Granja', 'Punto', 'DNI', 'Nombre', 'Empresa', 'Reemplazo'] as $h) {
-            $html .= '<th style="border:1px solid #7CB3E7;padding:4px;text-align:left;">' . htmlspecialchars($h) . '</th>';
-        }
-        $html .= '</tr></thead><tbody>';
-        $n = 0;
-        foreach ($items as $r) {
-            $bg = $n % 2 === 0 ? '#ffffff' : '#AEE4E8';
-            $nombre = trim((string) ($r['apellidos'] ?? '') . ', ' . (string) ($r['nombres'] ?? ''));
-            $granja = (string) ($r['granja_cod'] ?? '');
-            if (!empty($r['granja_nombre'])) {
-                $granja .= ' · ' . $r['granja_nombre'];
-            }
-            $html .= '<tr style="background:' . $bg . ';">';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['fecha'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['turno_cod'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars($granja) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['punto_nombre'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['dni'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars($nombre) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . htmlspecialchars((string) ($r['empresa_nombre'] ?? $r['empresa'] ?? '')) . '</td>';
-            $html .= '<td style="border:1px solid #7CB3E7;padding:3px;">' . (!empty($r['es_reemplazo']) ? 'Sí' : '') . '</td>';
-            $html .= '</tr>';
-            $n++;
-        }
-        $html .= '</tbody></table>';
-
-        return $html;
     }
 }

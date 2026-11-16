@@ -36,6 +36,43 @@ final class GranjaRepository
         }, $st->fetchAll());
     }
 
+    /**
+     * @param list<string> $codigos
+     * @return array<string, string>
+     */
+    public function nombres(array $codigos): array
+    {
+        $lista = [];
+        foreach ($codigos as $c) {
+            $c = trim((string) $c);
+            if ($c !== '') {
+                $lista[$c] = $c;
+            }
+        }
+        if ($lista === []) {
+            return [];
+        }
+        $marks = implode(',', array_fill(0, count($lista), '?'));
+        $st = $this->pdo->prepare(
+            "SELECT TRIM(codgranja) AS codigo, TRIM(nomgranja) AS nombre
+               FROM lk_granjas WHERE TRIM(codgranja) IN ({$marks})"
+        );
+        $st->execute(array_values($lista));
+        $out = [];
+        foreach ($st->fetchAll() as $r) {
+            $out[(string) $r['codigo']] = (string) $r['nombre'];
+        }
+
+        return $out;
+    }
+
+    public function nombre(string $codigo): string
+    {
+        $map = $this->nombres([$codigo]);
+
+        return $map[trim($codigo)] ?? '';
+    }
+
     public function existe(string $codigo): bool
     {
         $st = $this->pdo->prepare('SELECT 1 FROM lk_granjas WHERE TRIM(codgranja) = ? LIMIT 1');

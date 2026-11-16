@@ -91,15 +91,17 @@ final class ReporteService
                 ORDER BY a.fecha, p.granja_cod, p.nombre, a.turno_cod';
         $st = $this->pdo->prepare($sql);
         $st->execute($params);
-        $nombres = [];
-        foreach ((new GranjaRepository())->listar() as $g) {
-            $nombres[$g['codigo']] = $g['nombre'];
+        $rows = $st->fetchAll() ?: [];
+        $cods = [];
+        foreach ($rows as $r) {
+            $cods[] = (string) ($r['granja_cod'] ?? '');
         }
+        $nombres = (new GranjaRepository())->nombres($cods);
         $items = array_map(static function (array $r) use ($nombres): array {
             $cod = trim((string) ($r['granja_cod'] ?? ''));
             $r['granja_nombre'] = $nombres[$cod] ?? '';
             return $r;
-        }, $st->fetchAll());
+        }, $rows);
 
         return ['ok' => true, 'data' => ['items' => $items, 'desde' => $desde, 'hasta' => $hasta]];
     }

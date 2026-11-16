@@ -225,6 +225,41 @@ final class PuntoRepository
         return $st->fetchAll();
     }
 
+    /**
+     * Turnos de varios puntos en una sola consulta (mismo contenido que turnos()).
+     *
+     * @param list<int> $puntoIds
+     * @return array<int, list<array<string, mixed>>>
+     */
+    public function turnosPorPuntos(array $puntoIds): array
+    {
+        $ids = [];
+        foreach ($puntoIds as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if ($ids === []) {
+            return [];
+        }
+        $marks = implode(',', array_fill(0, count($ids), '?'));
+        $st = $this->pdo->prepare(
+            "SELECT pt.*, tc.nombre AS turno_nombre, tc.hora_inicio, tc.hora_fin, tc.cruza_medianoche
+             FROM bio_punto_turno pt
+             JOIN bio_turno_catalogo tc ON tc.codigo = pt.turno_cod
+             WHERE pt.punto_id IN ({$marks})
+             ORDER BY pt.punto_id, pt.id"
+        );
+        $st->execute(array_values($ids));
+        $out = [];
+        foreach ($st->fetchAll() as $row) {
+            $out[(int) $row['punto_id']][] = $row;
+        }
+
+        return $out;
+    }
+
     /** @return list<array<string, mixed>> */
     public function cargosRequeridos(int $puntoId): array
     {

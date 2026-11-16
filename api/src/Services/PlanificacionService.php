@@ -454,9 +454,12 @@ final class PlanificacionService
             $idx[(int) $a['punto_id'] . '|' . $a['fecha'] . '|' . $a['turno_cod']][] = $a;
         }
         $rows = [];
+        $turnosPorPunto = $this->puntos->turnosPorPuntos(array_map(static function (array $p): int {
+            return (int) $p['id'];
+        }, $puntos));
         foreach ($puntos as $p) {
             $pid = (int) $p['id'];
-            $turnos = $this->puntos->turnos($pid);
+            $turnos = $turnosPorPunto[$pid] ?? [];
             // Turnos sin cupo (0 personas) y sin asignaciones no se muestran
             $turnos = array_values(array_filter($turnos, function (array $tp) use ($idx, $pid, $days): bool {
                 if ((int) $tp['personal_requerido'] > 0) {
