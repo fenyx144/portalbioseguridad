@@ -12,6 +12,8 @@ export type Personal = {
   estado: 'ACTIVO' | 'CESADO'
   granja_base_cod: string
   foto_ruta: string
+  usuario_cod?: string
+  antiguedad_dias?: number
 }
 
 export function etiquetaEmpresaPersonal(

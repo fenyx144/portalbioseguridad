@@ -20,7 +20,7 @@ final class CapacitacionRepository
     /** @return list<array<string, mixed>> */
     public function listar(bool $soloActivos = true): array
     {
-        $sql = 'SELECT id, codigo, nombre, vigencia_meses, estado FROM bio_capacitacion';
+        $sql = 'SELECT id, codigo, nombre, vigencia_meses, tipo, estado FROM bio_capacitacion';
         if ($soloActivos) {
             $sql .= " WHERE estado = 'ACTIVO'";
         }
@@ -43,12 +43,13 @@ final class CapacitacionRepository
     public function crear(array $data): int
     {
         $st = $this->pdo->prepare(
-            'INSERT INTO bio_capacitacion (codigo, nombre, vigencia_meses, estado) VALUES (?, ?, ?, ?)'
+            'INSERT INTO bio_capacitacion (codigo, nombre, vigencia_meses, tipo, estado) VALUES (?, ?, ?, ?, ?)'
         );
         $st->execute([
             $data['codigo'],
             $data['nombre'],
             (int) $data['vigencia_meses'],
+            $data['tipo'] ?? 'OTRO',
             $data['estado'] ?? 'ACTIVO',
         ]);
 
@@ -59,12 +60,13 @@ final class CapacitacionRepository
     public function actualizar(int $id, array $data): void
     {
         $st = $this->pdo->prepare(
-            'UPDATE bio_capacitacion SET codigo = ?, nombre = ?, vigencia_meses = ?, estado = ? WHERE id = ?'
+            'UPDATE bio_capacitacion SET codigo = ?, nombre = ?, vigencia_meses = ?, tipo = ?, estado = ? WHERE id = ?'
         );
         $st->execute([
             $data['codigo'],
             $data['nombre'],
             (int) $data['vigencia_meses'],
+            $data['tipo'] ?? 'OTRO',
             $data['estado'],
             $id,
         ]);

@@ -7,6 +7,8 @@ namespace Bio\Api\Services;
 use Bio\Api\Repositories\EmpresaRepository;
 use Bio\Api\Repositories\GranjaRepository;
 use Bio\Api\Repositories\PersonalRepository;
+use Bio\Api\Support\PersonalProveedorSync;
+use Bio\Api\Support\SanidadTrabajadorBridge;
 use Bio\Api\Support\UserContext;
 
 final class PersonalService
@@ -35,6 +37,13 @@ final class PersonalService
             'cargo' => $query['cargo'] ?? '',
             'granja_base' => $query['granja_base'] ?? '',
         ];
+        $eid = (int) ($filters['empresa_id'] ?? 0);
+        if ($eid > 0) {
+            try {
+                (new PersonalProveedorSync())->importarEmpresa($eid);
+            } catch (\Throwable $e) {
+            }
+        }
         $result = $this->repo->listar($filters, $page, $perPage);
 
         return [
@@ -60,8 +69,9 @@ final class PersonalService
             return ['ok' => false, 'error' => ['code' => 'duplicate', 'message' => 'DNI ya registrado']];
         }
         $id = $this->repo->crear($this->normalize($body));
+        $extra = $this->publicarTercero($id);
 
-        return ['ok' => true, 'data' => ['id' => $id]];
+        return ['ok' => true, 'data' => array_merge(['id' => $id], $extra)];
     }
 
     /** @param array<string, mixed> $body */
@@ -83,8 +93,38 @@ final class PersonalService
         $data = $this->normalize($body);
         $data['foto_ruta'] = $body['foto_ruta'] ?? ($existing['foto_ruta'] ?? '');
         $this->repo->actualizar($id, $data);
+        $extra = $this->publicarTercero($id);
 
-        return ['ok' => true, 'data' => ['id' => $id]];
+        return ['ok' => true, 'data' => array_merge(['id' => $id], $extra)];
+    }
+
+    /** @return array<string, mixed> */
+    private function publicarTercero(int $id): array
+    {
+        $ficha = $this->repo->find($id);
+        if ($ficha === null || ($ficha['empresa'] ?? '') !== 'TERCERO' || empty($ficha['empresa_id'])) {
+            return [];
+        }
+        $sync = new PersonalProveedorSync();
+        $sync->publicar($ficha, (string) ($_SESSION['usuario'] ?? ''));
+        if (($ficha['estado'] ?? '') !== 'ACTIVO') {
+            return [];
+        }
+        if (trim((string) ($ficha['usuario_cod'] ?? '')) !== '') {
+            return ['usuario_cod' => $ficha['usuario_cod']];
+        }
+        $nombre = trim((string) $ficha['nombres'] . ' ' . (string) $ficha['apellidos']);
+        $u = SanidadTrabajadorBridge::asegurar((string) $ficha['dni'], $nombre, $id, (int) $ficha['empresa_id']);
+        if (!empty($u['ok']) && !empty($u['usuario_cod'])) {
+            $this->repo->setUsuarioCod($id, (string) $u['usuario_cod']);
+        }
+
+        return [
+            'usuario_cod' => $u['usuario_cod'] ?? '',
+            'usuario_ok' => !empty($u['ok']),
+            'usuario_message' => $u['message'] ?? '',
+            'clave_inicial' => $u['clave_inicial'] ?? '',
+        ];
     }
 
     public function ficha(int $id): array

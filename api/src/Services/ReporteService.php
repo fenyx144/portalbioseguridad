@@ -43,12 +43,16 @@ final class ReporteService
             $where[] = 'p.empresa_id = ?';
             $params[] = (int) $query['empresa_id'];
         }
+        $orden = ($query['orden'] ?? '') === 'antiguedad'
+            ? 'p.fecha_contratacion ASC, p.apellidos, p.nombres'
+            : 'p.apellidos, p.nombres';
         $sql = 'SELECT p.id, p.dni, p.nombres, p.apellidos, p.cargo, p.empresa, p.empresa_id,
-                       p.fecha_contratacion, p.estado, p.granja_base_cod,
+                       p.fecha_contratacion, p.estado, p.granja_base_cod, p.usuario_cod,
+                       DATEDIFF(CURDATE(), p.fecha_contratacion) AS antiguedad_dias,
                        e.codigo AS empresa_codigo, e.razon_social AS empresa_razon_social
                 FROM bio_personal p
                 LEFT JOIN bio_empresa e ON e.id = p.empresa_id
-                WHERE ' . implode(' AND ', $where) . ' ORDER BY p.apellidos, p.nombres';
+                WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . $orden;
         $st = $this->pdo->prepare($sql);
         $st->execute($params);
         $items = $st->fetchAll() ?: [];
@@ -78,7 +82,7 @@ final class ReporteService
             $params[] = (int) $query['empresa_id'];
         }
         $sql = 'SELECT a.fecha, a.turno_cod, p.granja_cod, p.nombre AS punto_nombre, p.tipo_cod,
-                       per.dni, per.nombres, per.apellidos, per.empresa, be.razon_social AS empresa_nombre, a.es_reemplazo
+                       per.dni, per.nombres, per.apellidos, per.cargo, per.empresa, be.razon_social AS empresa_nombre, a.es_reemplazo
                 FROM bio_asignacion a
                 JOIN bio_puntos p ON p.id = a.punto_id
                 JOIN bio_personal per ON per.id = a.personal_id

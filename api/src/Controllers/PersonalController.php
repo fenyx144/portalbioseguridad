@@ -108,7 +108,12 @@ final class PersonalController extends BaseController
         }
         $ruta = 'storage/personal/' . $name;
         $repo->actualizarFoto($id, $ruta);
-        self::respond(['ok' => true, 'data' => ['foto_ruta' => $ruta]]);
+        $persona['foto_ruta'] = $ruta;
+        try {
+            (new \Bio\Api\Support\PersonalProveedorSync())->publicar($persona, (string) ($_SESSION['usuario'] ?? ''));
+        } catch (\Throwable $e) {
+        }
+        self::respond(['ok' => true, 'data' => ['foto_ruta' => $ruta, 'foto_url' => '/personal/dni/' . rawurlencode((string) $persona['dni']) . '/foto']]);
     }
 
     public static function addCapacitacion(array $params): void

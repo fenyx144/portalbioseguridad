@@ -1285,6 +1285,12 @@ html[data-theme='dark'] .bio-btn-primary { color: var(--ix2-on-accent); }
 .bio-icon-action:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ---------- Tabs / segmentado ---------- */
+.bio-tabs.bio-process-nav {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+  max-width: 100%;
+}
 .bio-tabs {
   display: inline-flex;
   gap: 0.2rem;

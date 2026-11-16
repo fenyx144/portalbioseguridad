@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { api } from '../../shared/api/client'
 import { EmptyState, Kpi, PageHero } from '../../shared/ui/Kpi'
 import { useAuth } from '../auth/useAuth'
+import { almacenTabs, ProcessTabs } from '../layout/processNav'
 import { categorias, fmt, useStock } from './api'
 
 export function StockPage() {
@@ -23,7 +24,8 @@ export function StockPage() {
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
-      <PageHero icon="fa-boxes-stacked" title="Stock de insumos" subtitle={esGrs ? undefined : user?.empresa_nombre ?? undefined} />
+      <PageHero icon="fa-boxes-stacked" title="Stock de insumos" subtitle={esGrs ? undefined : user?.empresa_nombre ?? undefined}       />
+      <ProcessTabs items={almacenTabs} label="Almacén" />
       <div className="bio-kpis">
         <Kpi icon="fa-boxes-stacked" label="Insumos con movimiento" value={all.length} tone="info" />
         <Kpi icon="fa-circle-exclamation" label="Con faltante" value={conFaltante} tone={conFaltante ? 'danger' : 'ok'} />

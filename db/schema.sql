@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS `bio_capacitacion` (
   `codigo` varchar(30) NOT NULL,
   `nombre` varchar(120) NOT NULL,
   `vigencia_meses` smallint unsigned NOT NULL DEFAULT 0,
+  `tipo` enum('INDUCCION','FORMACION','EVALUACION','OTRO') NOT NULL DEFAULT 'OTRO',
   `estado` enum('ACTIVO','INACTIVO') NOT NULL DEFAULT 'ACTIVO',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_bio_cap_codigo` (`codigo`)
@@ -57,6 +58,7 @@ CREATE TABLE IF NOT EXISTS `bio_personal` (
   `estado` enum('ACTIVO','CESADO') NOT NULL DEFAULT 'ACTIVO',
   `granja_base_cod` varchar(20) NOT NULL DEFAULT '',
   `foto_ruta` varchar(255) NOT NULL DEFAULT '',
+  `usuario_cod` varchar(10) NOT NULL DEFAULT '',
   `creado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `actualizado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -200,10 +202,19 @@ CREATE TABLE IF NOT EXISTS `bio_plan_semana_copia` (
 
 CREATE TABLE IF NOT EXISTS `bio_asistencia` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `asignacion_id` int unsigned NOT NULL,
+  `asignacion_id` int unsigned DEFAULT NULL,
+  `personal_id` int unsigned DEFAULT NULL,
+  `empresa_id` int unsigned DEFAULT NULL,
+  `granja_cod` varchar(20) NOT NULL DEFAULT '',
+  `puesto_cod` varchar(30) NOT NULL DEFAULT '',
+  `tipo` enum('ENTRADA','SALIDA') NOT NULL DEFAULT 'ENTRADA',
   `marcado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `origen` enum('APP','PORTAL') NOT NULL DEFAULT 'PORTAL',
+  `usuario_registro` varchar(30) NOT NULL DEFAULT '',
+  `observacion` varchar(255) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`),
-  KEY `idx_bio_asist_asig` (`asignacion_id`)
+  KEY `idx_bio_asist_asig` (`asignacion_id`),
+  KEY `idx_bio_asist_personal` (`personal_id`,`marcado_en`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
 -- Almacén de insumos (ver migración 007)
@@ -295,4 +306,64 @@ CREATE TABLE IF NOT EXISTS `bio_almacen_relevo_det` (
   PRIMARY KEY (`id`),
   KEY `idx_bio_ard_relevo` (`relevo_id`),
   KEY `idx_bio_ard_insumo` (`insumo_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+CREATE TABLE IF NOT EXISTS `bio_puesto` (
+  `codigo` varchar(30) NOT NULL,
+  `nombre` varchar(80) NOT NULL,
+  `turno` enum('DIA','NOCHE','UNICO') NOT NULL DEFAULT 'UNICO',
+  `orden` smallint unsigned NOT NULL DEFAULT 0,
+  `estado` enum('ACTIVO','INACTIVO') NOT NULL DEFAULT 'ACTIVO',
+  PRIMARY KEY (`codigo`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+CREATE TABLE IF NOT EXISTS `bio_requerimiento_puesto` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `zona` varchar(40) NOT NULL DEFAULT '',
+  `granja_nombre` varchar(120) NOT NULL,
+  `granja_cod` varchar(20) NOT NULL DEFAULT '',
+  `puesto_cod` varchar(30) NOT NULL,
+  `cantidad` decimal(8,2) NOT NULL DEFAULT 0.00,
+  `orden` smallint unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_bio_req_puesto` (`zona`,`granja_nombre`,`puesto_cod`),
+  KEY `idx_bio_req_orden` (`orden`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+CREATE TABLE IF NOT EXISTS `bio_alcoholemia` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `personal_id` int unsigned NOT NULL,
+  `empresa_id` int unsigned DEFAULT NULL,
+  `granja_cod` varchar(20) NOT NULL DEFAULT '',
+  `fecha` date NOT NULL,
+  `hora` time DEFAULT NULL,
+  `resultado` enum('NEGATIVO','POSITIVO','NO_SE_REALIZO') NOT NULL,
+  `valor` decimal(6,3) DEFAULT NULL,
+  `observacion` varchar(255) NOT NULL DEFAULT '',
+  `accion` varchar(255) NOT NULL DEFAULT '',
+  `origen` enum('APP','PORTAL') NOT NULL DEFAULT 'PORTAL',
+  `usuario_registro` varchar(30) NOT NULL DEFAULT '',
+  `creado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_bio_alc_personal` (`personal_id`),
+  KEY `idx_bio_alc_fecha` (`fecha`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+
+CREATE TABLE IF NOT EXISTS `bio_anomalia` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `ambito` enum('REQUERIMIENTO','PLANIFICACION','ASISTENCIA','ALCOHOLEMIA','GENERAL') NOT NULL DEFAULT 'PLANIFICACION',
+  `personal_id` int unsigned DEFAULT NULL,
+  `empresa_id` int unsigned DEFAULT NULL,
+  `granja_cod` varchar(20) NOT NULL DEFAULT '',
+  `granja_nombre` varchar(120) NOT NULL DEFAULT '',
+  `puesto_cod` varchar(30) NOT NULL DEFAULT '',
+  `fecha` date NOT NULL,
+  `descripcion` varchar(500) NOT NULL,
+  `accion` varchar(500) NOT NULL DEFAULT '',
+  `estado` enum('ABIERTA','EN_PROCESO','CERRADA') NOT NULL DEFAULT 'ABIERTA',
+  `usuario_registro` varchar(30) NOT NULL DEFAULT '',
+  `creado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_bio_an_fecha` (`fecha`),
+  KEY `idx_bio_an_ambito` (`ambito`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;

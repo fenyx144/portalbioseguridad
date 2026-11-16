@@ -9,6 +9,7 @@ import { useGranjas, useSemanaPlan } from './api'
 import { GranjaCards } from './components/GranjaCards'
 import { GranjaPanel } from './components/GranjaPanel'
 import { WeekNav } from './components/WeekNav'
+import { planTabs, ProcessTabs } from '../layout/processNav'
 import { pct, resumenGranjas } from './utils'
 
 type Filtro = 'todas' | 'pendientes' | 'completas'
@@ -69,6 +70,7 @@ export function PlanificacionPage() {
         title={esGrs ? 'Planificación de terceros' : 'Planificación semanal'}
         subtitle={esGrs ? 'Vista consolidada' : user?.empresa_nombre ?? undefined}
       />
+      <ProcessTabs items={planTabs} label="Planificación" />
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         <WeekNav semana={semana} onChange={setSemana} />
       </div>

@@ -51,12 +51,51 @@ final class EmpresaRepository
             return $row;
         }
 
+        $porAcceso = $this->findPorAccesoTrabajador($cod);
+        if ($porAcceso !== null) {
+            return $porAcceso;
+        }
+
         // Operarios de contratista (p. ej. EMPT01): no aplica a cuentas GRS (DERR, etc.).
         if (!self::esCodigoOperarioEmpresa($cod)) {
             return null;
         }
 
         return $this->findByTrabajadorUsuario($cod);
+    }
+
+    /** Trabajador ligado por bio_empresa_acceso o bio_personal.usuario_cod. */
+    public function findPorAccesoTrabajador(string $codigo): ?array
+    {
+        $cod = strtoupper(trim($codigo));
+        try {
+            $st = $this->pdo->prepare(
+                "SELECT e.* FROM bio_empresa_acceso a
+                   INNER JOIN bio_empresa e ON e.id = a.empresa_id
+                  WHERE UPPER(TRIM(a.usuario_cod)) = ? AND a.estado = 'ACTIVO' AND e.estado = 'ACTIVO'
+                  LIMIT 1"
+            );
+            $st->execute([$cod]);
+            $row = $st->fetch();
+            if ($row) {
+                return $row;
+            }
+        } catch (\Throwable $e) {
+        }
+        try {
+            $st = $this->pdo->prepare(
+                "SELECT e.* FROM bio_personal p
+                   INNER JOIN bio_empresa e ON e.id = p.empresa_id
+                  WHERE UPPER(TRIM(p.usuario_cod)) = ? AND p.estado = 'ACTIVO' AND e.estado = 'ACTIVO'
+                  LIMIT 1"
+            );
+            $st->execute([$cod]);
+            $row = $st->fetch();
+
+            return $row ?: null;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     /** Cuentas móvil/web de operario, no administradores GRS ni usuario portal EMP00x. */

@@ -82,11 +82,17 @@ final class CapacitacionService
     /** @param array<string, mixed> $body */
     private function normalizeCatalog(array $body): array
     {
+        $tipo = (string) ($body['tipo'] ?? 'OTRO');
+        if (!in_array($tipo, ['INDUCCION', 'FORMACION', 'EVALUACION', 'OTRO'], true)) {
+            $tipo = 'OTRO';
+        }
+
         return [
             'codigo' => strtoupper(trim((string) $body['codigo'])),
             'nombre' => trim((string) $body['nombre']),
             'vigencia_meses' => max(0, (int) ($body['vigencia_meses'] ?? 0)),
             'estado' => $body['estado'] ?? 'ACTIVO',
+            'tipo' => $tipo,
         ];
     }
 }

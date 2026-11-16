@@ -11,6 +11,7 @@ import { PersonalForm, type PersonalSubmitPayload } from './PersonalForm'
 import type { Personal } from './types'
 import { etiquetaEmpresaPersonal } from './types'
 import { useAuth } from '../auth/useAuth'
+import { personalTabs, ProcessTabs } from '../layout/processNav'
 
 export function PersonalListPage() {
   const { user } = useAuth()
@@ -50,7 +51,7 @@ export function PersonalListPage() {
 
   const crear = useMutation({
     mutationFn: async ({ body, foto }: { body: PersonalSubmitPayload; foto?: File | null }) => {
-      const r = await api.post<{ id: number }>('/personal', body)
+      const r = await api.post<{ id: number; usuario_cod?: string; usuario_message?: string }>('/personal', body)
       if (foto && r?.id) {
         const fd = new FormData()
         fd.append('foto', foto)
@@ -60,6 +61,8 @@ export function PersonalListPage() {
           return `Personal registrado. No se pudo subir la foto: ${(e as Error).message}`
         }
       }
+      if (r.usuario_cod) return `Personal registrado. Usuario ${r.usuario_cod}`
+      if (r.usuario_message) return `Personal registrado. ${r.usuario_message}`
       return 'Personal registrado correctamente'
     },
     onSuccess: (msg) => {
@@ -82,6 +85,7 @@ export function PersonalListPage() {
           </Button>
         }
       />
+      <ProcessTabs items={personalTabs} label="Personal" />
 
       <div className="bio-toolbar">
         <Input
@@ -150,6 +154,7 @@ export function PersonalListPage() {
               <th>DNI</th>
               <th>Nombre</th>
               <th>Cargo</th>
+              <th>Usuario</th>
               <th>{isGrs ? 'Contratista' : 'Empresa'}</th>
               <th>Estado</th>
               <th>Granja base</th>
@@ -158,7 +163,7 @@ export function PersonalListPage() {
           <tbody>
             {list.isLoading ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', color: 'var(--ix2-muted)', padding: '2rem' }}>
+                <td colSpan={8} style={{ textAlign: 'center', color: 'var(--ix2-muted)', padding: '2rem' }}>
                   Cargando…
                 </td>
               </tr>
@@ -173,6 +178,7 @@ export function PersonalListPage() {
                     </Link>
                   </td>
                   <td>{p.cargo}</td>
+                  <td style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.75rem' }}>{p.usuario_cod || '—'}</td>
                   <td>{etiquetaEmpresaPersonal(p)}</td>
                   <td>
                     <span className={`bio-badge ${p.estado === 'ACTIVO' ? 'bio-badge-ok' : 'bio-badge-warn'}`}>

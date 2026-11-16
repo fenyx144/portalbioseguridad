@@ -18,6 +18,12 @@ import { AlmacenPage } from '../features/almacen/AlmacenPage'
 import { InsumosPage } from '../features/almacen/InsumosPage'
 import { StockPage } from '../features/almacen/StockPage'
 import { ArticulosIngresoPage } from '../features/articulos/ArticulosIngresoPage'
+import { AlcoholemiaPage } from '../features/operacion/AlcoholemiaPage'
+import { AnomaliasPage } from '../features/operacion/AnomaliasPage'
+import { AsistenciaPage } from '../features/operacion/AsistenciaPage'
+import { RequerimientoPage } from '../features/operacion/RequerimientoPage'
+import { ReporteFaltantePage } from '../features/reportes/ReporteFaltantePage'
+import { ReporteHorariosPage } from '../features/reportes/ReporteHorariosPage'
 
 export const router = createBrowserRouter(
   [
@@ -30,10 +36,15 @@ export const router = createBrowserRouter(
           children: [
             { path: '/', element: <HomePage /> },
             { path: '/personal', element: <PersonalListPage /> },
+            { path: '/personal/requerimiento', element: <RequerimientoPage /> },
+            { path: '/personal/asistencia', element: <AsistenciaPage /> },
+            { path: '/personal/alcoholemia', element: <AlcoholemiaPage /> },
+            { path: '/personal/anomalias', element: <AnomaliasPage /> },
             { path: '/personal/:id', element: <PersonalDetailPage /> },
             { path: '/empresas', element: <EmpresasPage /> },
             { path: '/puntos', element: <PuntosPage /> },
             { path: '/planificacion', element: <PlanificacionPage /> },
+            { path: '/planificacion/anomalias', element: <AnomaliasPage /> },
             { path: '/capacitaciones', element: <CapacitacionesPage /> },
             { path: '/capacitaciones/catalogo', element: <CapacitacionCatalogoPage /> },
             { path: '/almacen', element: <AlmacenPage /> },
@@ -44,6 +55,10 @@ export const router = createBrowserRouter(
             { path: '/reportes/personal-asignado', element: <ReporteAsignadoPage /> },
             { path: '/reportes/capacitaciones', element: <ReporteCapacitacionesPage /> },
             { path: '/reportes/stock-indumentaria', element: <ReporteStockIndumentariaPage /> },
+            { path: '/reportes/faltante', element: <ReporteFaltantePage /> },
+            { path: '/reportes/horarios', element: <ReporteHorariosPage /> },
+            { path: '/reportes/alcoholemia', element: <AlcoholemiaPage reporte /> },
+            { path: '/reportes/anomalias', element: <AnomaliasPage reporte /> },
             { path: '/reportes', element: <Navigate to="/reportes/personal-registrado" replace /> },
           ],
         },

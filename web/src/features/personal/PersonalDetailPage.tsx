@@ -160,6 +160,27 @@ export function PersonalDetailPage() {
                 <dd>{p.estado}</dd>
               </div>
               <div>
+                <dt className="text-[var(--color-bio-muted)]">Usuario app</dt>
+                <dd>
+                  {p.usuario_cod || '—'}
+                  {p.empresa === 'TERCERO' && !p.usuario_cod ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      style={{ marginLeft: '0.4rem' }}
+                      onClick={() =>
+                        api.post<{ usuario_cod?: string }>(`/personal/${p.id}/usuario`).then(() => {
+                          void qc.invalidateQueries({ queryKey: ['personal', pid, 'ficha'] })
+                          setExito('Usuario creado')
+                        })
+                      }
+                    >
+                      Crear
+                    </Button>
+                  ) : null}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-[var(--color-bio-muted)]">Granja base</dt>
                 <dd>{p.granja_base_cod ? ((g) => (g ? `${g.codigo} - ${g.nombre}` : p.granja_base_cod))(granjas.data?.items.find((x) => x.codigo === p.granja_base_cod)) : '—'}</dd>
               </div>
@@ -182,6 +203,7 @@ export function PersonalDetailPage() {
                 id: number
                 codigo: string
                 nombre: string
+                tipo?: string
                 fecha_realizada: string
                 fecha_evaluacion: string | null
                 fecha_vence: string | null
@@ -193,6 +215,7 @@ export function PersonalDetailPage() {
                   id: number
                   codigo: string
                   nombre: string
+                  tipo?: string
                   fecha_realizada: string
                   fecha_evaluacion: string | null
                   fecha_vence: string | null
@@ -204,6 +227,7 @@ export function PersonalDetailPage() {
                     <li key={c.id} className="px-3 py-2">
                       <span className="font-medium">
                         {c.codigo} — {c.nombre}
+                        {c.tipo && c.tipo !== 'OTRO' ? ` (${c.tipo})` : ''}
                       </span>
                       <span className="text-[var(--color-bio-muted)]">
                         {' '}

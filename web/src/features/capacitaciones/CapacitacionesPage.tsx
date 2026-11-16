@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../../shared/ui/ConfirmDialog'
 import { EmptyState, Kpi, PageHero } from '../../shared/ui/Kpi'
 import { NoticeDialog } from '../../shared/ui/NoticeDialog'
 import { useAuth } from '../auth/useAuth'
+import { capTabs, ProcessTabs } from '../layout/processNav'
 import { estadoSesion, useCancelarSesion, useCatalogo, useSesiones, type Sesion } from './api'
 import { SesionDetalleModal } from './components/SesionDetalleModal'
 import { SesionFormModal } from './components/SesionFormModal'
@@ -66,6 +67,7 @@ export function CapacitacionesPage() {
           ) : null
         }
       />
+      <ProcessTabs items={capTabs} label="Capacitaciones" />
 
       <div className="bio-kpis">
         <Kpi icon="fa-calendar" label="Programadas" value={k.prog} tone="info" />

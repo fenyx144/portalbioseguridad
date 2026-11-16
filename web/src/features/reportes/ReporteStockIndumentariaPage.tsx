@@ -7,8 +7,8 @@ import { Select } from '../../shared/ui/Input'
 import { PageHeader } from '../../shared/ui/PageHeader'
 import { fmt, type StockRow } from '../almacen/api'
 import { useAuth } from '../auth/useAuth'
+import { almacenTabs, ProcessTabs } from '../layout/processNav'
 import { ReporteExportBar } from './ReporteExportBar'
-import { ReporteSectionNav } from './ReporteSectionNav'
 
 export function ReporteStockIndumentariaPage() {
   const { user } = useAuth()
@@ -98,7 +98,7 @@ export function ReporteStockIndumentariaPage() {
         }
       />
 
-      <ReporteSectionNav />
+      <ProcessTabs items={almacenTabs} label="Almacén" />
 
       <div className="bio-kpis">
         <Kpi icon="fa-building" label="Proveedores con stock" value={proveedores} tone="info" />

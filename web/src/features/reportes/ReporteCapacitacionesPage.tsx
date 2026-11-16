@@ -5,8 +5,8 @@ import { formatDate } from '../../shared/lib/dates'
 import { useAuth } from '../auth/useAuth'
 import { Input, Select } from '../../shared/ui/Input'
 import { PageHeader } from '../../shared/ui/PageHeader'
+import { capTabs, ProcessTabs } from '../layout/processNav'
 import { ReporteExportBar } from './ReporteExportBar'
-import { ReporteSectionNav } from './ReporteSectionNav'
 
 export function ReporteCapacitacionesPage() {
   const { user } = useAuth()
@@ -75,7 +75,7 @@ export function ReporteCapacitacionesPage() {
         }
       />
 
-      <ReporteSectionNav />
+      <ProcessTabs items={capTabs} label="Capacitaciones" />
 
       <div className="bio-toolbar">
         <Input placeholder="Buscar DNI o nombre…" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: '14rem' }} />

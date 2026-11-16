@@ -60,7 +60,7 @@ final class PersonalRepository
         $offset = max(0, ($page - 1) * $perPage);
         $st = $this->pdo->prepare(
             "SELECT p.id, p.dni, p.nombres, p.apellidos, p.cargo, p.empresa, p.empresa_id,
-                    p.fecha_contratacion, p.estado, p.granja_base_cod, p.foto_ruta,
+                    p.fecha_contratacion, p.estado, p.granja_base_cod, p.foto_ruta, p.usuario_cod,
                     e.codigo AS empresa_codigo, e.razon_social AS empresa_razon_social
              FROM {$from} WHERE {$sqlWhere}
              ORDER BY p.apellidos, p.nombres LIMIT {$perPage} OFFSET {$offset}"
@@ -142,6 +142,55 @@ final class PersonalRepository
         return $row ?: null;
     }
 
+    public function findFichaPorDni(string $dni): ?array
+    {
+        $st = $this->pdo->prepare(
+            'SELECT p.*, e.codigo AS empresa_codigo, e.razon_social AS empresa_razon_social
+               FROM bio_personal p
+               LEFT JOIN bio_empresa e ON e.id = p.empresa_id
+              WHERE p.dni = ? LIMIT 1'
+        );
+        $st->execute([trim($dni)]);
+        $row = $st->fetch();
+
+        return $row ?: null;
+    }
+
+    public function findPorUsuario(string $codigo): ?array
+    {
+        $cod = strtoupper(trim($codigo));
+        if ($cod === '') {
+            return null;
+        }
+        $st = $this->pdo->prepare(
+            "SELECT * FROM bio_personal WHERE UPPER(TRIM(usuario_cod)) = ? AND estado = 'ACTIVO' LIMIT 1"
+        );
+        $st->execute([$cod]);
+        $row = $st->fetch();
+        if ($row) {
+            return $row;
+        }
+        try {
+            $st = $this->pdo->prepare(
+                "SELECT p.* FROM bio_personal p
+                   INNER JOIN usuario u ON TRIM(u.libtri) = TRIM(p.dni)
+                  WHERE UPPER(TRIM(u.codigo)) = ? AND p.estado = 'ACTIVO' LIMIT 1"
+            );
+            $st->execute([$cod]);
+            $row = $st->fetch();
+
+            return $row ?: null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function setUsuarioCod(int $id, string $codigo): void
+    {
+        $st = $this->pdo->prepare('UPDATE bio_personal SET usuario_cod = ? WHERE id = ?');
+        $st->execute([substr(strtoupper(trim($codigo)), 0, 10), $id]);
+    }
+
     /** @param array<string, mixed> $data */
     public function crear(array $data): int
     {
@@ -216,7 +265,7 @@ final class PersonalRepository
     {
         $st = $this->pdo->prepare(
             'SELECT pc.id, pc.fecha_realizada, pc.fecha_vence, pc.resultado, pc.fecha_evaluacion, pc.observacion,
-                    c.id AS capacitacion_id, c.codigo, c.nombre, c.vigencia_meses
+                    c.id AS capacitacion_id, c.codigo, c.nombre, c.vigencia_meses, c.tipo
              FROM bio_personal_capacitacion pc
              JOIN bio_capacitacion c ON c.id = pc.capacitacion_id
              WHERE pc.personal_id = ? ORDER BY pc.fecha_realizada DESC'

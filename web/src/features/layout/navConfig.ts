@@ -3,7 +3,6 @@ export type NavItem = {
   label: string
   icon: string
   end?: boolean
-  /** Etiqueta alternativa para la empresa contratista */
   labelEmpresa?: string
   grsOnly?: boolean
   empresaOnly?: boolean
@@ -35,49 +34,48 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    id: 'operacion',
-    label: 'Operación',
+    id: 'procesos',
+    label: 'Procesos',
     items: [
-      { to: '/personal', label: 'Personal por empresa', labelEmpresa: 'Mi personal', icon: 'fa-users' },
-      { to: '/planificacion', label: 'Planificación terceros', labelEmpresa: 'Planificación', icon: 'fa-calendar-week' },
+      { to: '/personal', label: 'Personal', labelEmpresa: 'Mi personal', icon: 'fa-users', end: true },
+      { to: '/planificacion', label: 'Planificación', icon: 'fa-calendar-week' },
       { to: '/capacitaciones', label: 'Capacitaciones', icon: 'fa-graduation-cap', end: true },
-      { to: '/almacen', label: 'Entregas de insumos', labelEmpresa: 'Almacén', icon: 'fa-warehouse', end: true },
-    ],
-  },
-  {
-    id: 'reportes',
-    label: 'Reportes',
-    items: [
-      { to: '/reportes/personal-registrado', label: 'Personal registrado', icon: 'fa-id-card' },
-      { to: '/reportes/personal-asignado', label: 'Personal asignado', icon: 'fa-user-check' },
-      { to: '/reportes/capacitaciones', label: 'Capacitaciones', icon: 'fa-chart-column' },
-      { to: '/reportes/stock-indumentaria', label: 'Indumentaria por proveedor', icon: 'fa-shirt', grsOnly: true },
-      { to: '/almacen/stock', label: 'Stock de insumos', icon: 'fa-chart-simple' },
+      { to: '/almacen', label: 'Almacén', labelEmpresa: 'Almacén', icon: 'fa-warehouse', end: true },
     ],
   },
 ]
 
 const titles: [string, string, string][] = [
-  ['/personal/', 'Operación', 'Ficha de personal'],
-  ['/empresas', 'Configuración', 'Empresas contratistas'],
+  ['/personal/requerimiento', 'Personal', 'Requerimiento'],
+  ['/personal/asistencia', 'Personal', 'Asistencia'],
+  ['/personal/alcoholemia', 'Personal', 'Alcoholemia'],
+  ['/personal/anomalias', 'Personal', 'Anomalías'],
+  ['/personal/', 'Personal', 'Ficha'],
+  ['/empresas', 'Configuración', 'Empresas'],
   ['/puntos', 'Configuración', 'Granjas y puntos'],
   ['/capacitaciones/catalogo', 'Configuración', 'Catálogo de cursos'],
   ['/almacen/insumos', 'Configuración', 'Catálogo de insumos'],
   ['/articulos-ingreso', 'Configuración', 'Artículos en ingreso'],
-  ['/almacen/stock', 'Reportes', 'Stock de insumos'],
-  ['/almacen', 'Operación', 'Almacén'],
-  ['/personal', 'Operación', 'Personal'],
-  ['/planificacion', 'Operación', 'Planificación'],
-  ['/capacitaciones', 'Operación', 'Capacitaciones'],
-  ['/reportes/personal-registrado', 'Reportes', 'Personal registrado'],
-  ['/reportes/personal-asignado', 'Reportes', 'Personal asignado'],
-  ['/reportes/capacitaciones', 'Reportes', 'Capacitaciones'],
-  ['/reportes/stock-indumentaria', 'Reportes', 'Indumentaria por proveedor'],
+  ['/almacen/stock', 'Almacén', 'Stock'],
+  ['/almacen', 'Almacén', 'Almacén'],
+  ['/personal', 'Personal', 'Personal'],
+  ['/planificacion/anomalias', 'Planificación', 'Anomalías'],
+  ['/planificacion', 'Planificación', 'Planificación'],
+  ['/capacitaciones', 'Capacitaciones', 'Capacitaciones'],
+  ['/reportes/personal-registrado', 'Personal', 'Personal registrado'],
+  ['/reportes/personal-asignado', 'Planificación', 'Personal asignado'],
+  ['/reportes/capacitaciones', 'Capacitaciones', 'Capacitaciones'],
+  ['/reportes/stock-indumentaria', 'Almacén', 'Indumentaria'],
+  ['/reportes/faltante', 'Personal', 'Personal faltante'],
+  ['/reportes/horarios', 'Personal', 'Horarios'],
+  ['/reportes/alcoholemia', 'Personal', 'Alcoholemia'],
+  ['/reportes/anomalias', 'Personal', 'Anomalías'],
 ]
 
 export function pageTitle(path: string): { section: string; title: string } {
   if (path === '/') return { section: 'General', title: 'Inicio' }
-  for (const [k, section, title] of titles) {
+  const sorted = [...titles].sort((a, b) => b[0].length - a[0].length)
+  for (const [k, section, title] of sorted) {
     if (path.startsWith(k)) return { section, title }
   }
   return { section: '', title: 'Bioseguridad' }

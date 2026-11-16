@@ -8,6 +8,7 @@ import { EmptyState, Kpi, PageHero } from '../../shared/ui/Kpi'
 import { NoticeDialog } from '../../shared/ui/NoticeDialog'
 import { Tabs } from '../../shared/ui/Tabs'
 import { useAuth } from '../auth/useAuth'
+import { almacenTabs, ProcessTabs } from '../layout/processNav'
 import { estadosEntrega, fmt, useAnularEntrega, useConsumos, useEliminarConsumo, useEntregas, type Entrega } from './api'
 import { ConsumoModal } from './components/ConsumoModal'
 import { EntregaDetalleModal } from './components/EntregaDetalleModal'
@@ -59,6 +60,7 @@ export function AlmacenPage() {
           </>
         }
       />
+      <ProcessTabs items={almacenTabs} label="Almacén" />
       <div className="bio-kpis">
         <Kpi icon="fa-hourglass-half" label="Pendientes de recepción" value={cuenta('PENDIENTE')} tone={cuenta('PENDIENTE') ? 'warn' : undefined} />
         <Kpi icon="fa-circle-check" label="Recibidas" value={cuenta('RECIBIDA')} />

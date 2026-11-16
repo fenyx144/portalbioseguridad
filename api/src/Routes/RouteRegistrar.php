@@ -11,6 +11,7 @@ use Bio\Api\Controllers\CapacitacionController;
 use Bio\Api\Controllers\ConfigController;
 use Bio\Api\Controllers\EmpresaController;
 use Bio\Api\Controllers\GranjaController;
+use Bio\Api\Controllers\OperacionController;
 use Bio\Api\Controllers\PersonalController;
 use Bio\Api\Controllers\PlanificacionController;
 use Bio\Api\Controllers\PuntoController;
@@ -107,6 +108,43 @@ final class RouteRegistrar
             CapacitacionController::update($p);
         });
 
+        $r->add(['GET'], '/puestos', function () {
+            OperacionController::puestos();
+        });
+        $r->add(['GET'], '/requerimientos', function () {
+            OperacionController::requerimientos();
+        });
+        $r->add(['POST'], '/requerimientos', function () {
+            OperacionController::guardarRequerimientos();
+        });
+        $r->add(['GET'], '/asistencia', function () {
+            OperacionController::asistencia();
+        });
+        $r->add(['POST'], '/asistencia', function () {
+            OperacionController::marcar();
+        });
+        $r->add(['GET'], '/alcoholemia', function () {
+            OperacionController::alcoholemia();
+        });
+        $r->add(['POST'], '/alcoholemia', function () {
+            OperacionController::registrarAlcoholemia();
+        });
+        $r->add(['GET'], '/anomalias', function () {
+            OperacionController::anomalias();
+        });
+        $r->add(['POST'], '/anomalias', function () {
+            OperacionController::crearAnomalia();
+        });
+        $r->add(['PATCH'], '/anomalias/{id}', function (array $p) {
+            OperacionController::actualizarAnomalia($p);
+        });
+        $r->add(['GET'], '/personal/dni/{dni}/referencia', function (array $p) {
+            OperacionController::fotoReferencia($p);
+        });
+        $r->add(['GET'], '/personal/dni/{dni}/foto', function (array $p) {
+            OperacionController::fotoArchivo($p);
+        });
+
         $r->add(['GET'], '/personal', function () {
             PersonalController::index();
         });
@@ -130,6 +168,9 @@ final class RouteRegistrar
         });
         $r->add(['POST'], '/personal/{id}/foto', function (array $p) {
             PersonalController::uploadFoto($p);
+        });
+        $r->add(['POST'], '/personal/{id}/usuario', function (array $p) {
+            OperacionController::asegurarUsuario($p);
         });
         $r->add(['POST'], '/personal/{id}/capacitaciones', function (array $p) {
             PersonalController::addCapacitacion($p);
@@ -254,6 +295,18 @@ final class RouteRegistrar
         });
         $r->add(['GET'], '/reportes/stock-indumentaria', function () {
             ReporteController::stockIndumentariaPorProveedor();
+        });
+        $r->add(['GET'], '/reportes/faltante', function () {
+            OperacionController::faltante();
+        });
+        $r->add(['GET'], '/reportes/horarios', function () {
+            OperacionController::horarios();
+        });
+        $r->add(['GET'], '/reportes/alcoholemia', function () {
+            OperacionController::alcoholemia();
+        });
+        $r->add(['GET'], '/reportes/anomalias', function () {
+            OperacionController::anomalias();
         });
         $r->add(['GET'], '/reportes/planificacion-semana.pdf', function () {
             ReporteController::pdfPlanificacionSemana();

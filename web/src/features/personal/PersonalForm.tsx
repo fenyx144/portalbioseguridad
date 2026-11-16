@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -102,6 +103,10 @@ export function PersonalForm({ initial, granjas, empresas = [], permitirContrati
   const ultimo = useRef<{ dni: string; nombres: string; apellidos: string }>({ dni: initial?.dni ?? '', nombres: '', apellidos: '' })
 
   const mostrarContratista = permitirContratista
+  const puestos = useQuery({
+    queryKey: ['puestos'],
+    queryFn: () => api.get<{ items: { codigo: string; nombre: string }[] }>('/puestos'),
+  })
 
   const buscarDni = async (valor: string) => {
     const dni = valor.replace(/\D/g, '')
@@ -215,7 +220,12 @@ export function PersonalForm({ initial, granjas, empresas = [], permitirContrati
       </label>
       <label className="text-sm">
         Cargo
-        <Input className="mt-1" {...form.register('cargo')} />
+        <Input className="mt-1" list="puestos-cargo" {...form.register('cargo')} />
+        <datalist id="puestos-cargo">
+          {(puestos.data?.items ?? []).map((p) => (
+            <option key={p.codigo} value={p.nombre} />
+          ))}
+        </datalist>
       </label>
       {mostrarContratista ? (
         <label className="text-sm sm:col-span-2">

@@ -4,8 +4,8 @@ import { api } from '../../shared/api/client'
 import { formatDate, todayIso } from '../../shared/lib/dates'
 import { Input, Select } from '../../shared/ui/Input'
 import { PageHeader } from '../../shared/ui/PageHeader'
+import { planTabs, ProcessTabs } from '../layout/processNav'
 import { ReporteExportBar } from './ReporteExportBar'
-import { ReporteSectionNav } from './ReporteSectionNav'
 
 export function ReporteAsignadoPage() {
   const [desde, setDesde] = useState(todayIso())
@@ -65,7 +65,7 @@ export function ReporteAsignadoPage() {
         }
       />
 
-      <ReporteSectionNav />
+      <ProcessTabs items={planTabs} label="Planificación" />
 
       <div className="bio-toolbar">
         <div className="bio-field" style={{ minWidth: '9rem' }}>
@@ -98,20 +98,21 @@ export function ReporteAsignadoPage() {
               <th>Granja</th>
               <th>Punto</th>
               <th>DNI</th>
-              <th>Nombre</th>
-              <th>Empresa</th>
+      <th>Nombre</th>
+      <th>Cargo</th>
+      <th>Empresa</th>
             </tr>
           </thead>
           <tbody>
             {report.isLoading ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', color: 'var(--ix2-muted)', padding: '2rem' }}>
+                <td colSpan={8} style={{ textAlign: 'center', color: 'var(--ix2-muted)', padding: '2rem' }}>
                   Cargando…
                 </td>
               </tr>
             ) : report.data?.items.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', color: 'var(--ix2-muted)', padding: '2rem' }}>
+                <td colSpan={8} style={{ textAlign: 'center', color: 'var(--ix2-muted)', padding: '2rem' }}>
                   Sin asignaciones en el período
                 </td>
               </tr>
@@ -126,6 +127,7 @@ export function ReporteAsignadoPage() {
                   <td>
                     {r.apellidos}, {r.nombres}
                   </td>
+                  <td>{r.cargo}</td>
                   <td>{r.empresa_nombre || r.empresa}</td>
                 </tr>
               ))

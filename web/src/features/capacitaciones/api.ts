@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/api/client'
 
-export type Cap = { id: number; codigo: string; nombre: string; vigencia_meses: number; estado: string }
+export type Cap = { id: number; codigo: string; nombre: string; vigencia_meses: number; estado: string; tipo?: string }
 
 export type EstadoSesion = 'PROGRAMADA' | 'REALIZADA' | 'CANCELADA'
 export type Resultado = 'PENDIENTE' | 'APROBADO' | 'DESAPROBADO'

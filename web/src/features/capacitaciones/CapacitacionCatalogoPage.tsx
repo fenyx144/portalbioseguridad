@@ -6,7 +6,7 @@ import { EmptyState, PageHero } from '../../shared/ui/Kpi'
 import { Modal } from '../../shared/ui/Modal'
 import { useCatalogo, type Cap } from './api'
 
-const vacio = { codigo: '', nombre: '', vigencia_meses: '12', estado: 'ACTIVO' }
+const vacio = { codigo: '', nombre: '', vigencia_meses: '12', estado: 'ACTIVO', tipo: 'OTRO' }
 
 export function CapacitacionCatalogoPage() {
   const qc = useQueryClient()
@@ -32,7 +32,7 @@ export function CapacitacionCatalogoPage() {
   const abrir = (c: Cap | null) => {
     setEdit(c)
     setError('')
-    setForm(c ? { codigo: c.codigo, nombre: c.nombre, vigencia_meses: String(c.vigencia_meses), estado: c.estado } : vacio)
+    setForm(c ? { codigo: c.codigo, nombre: c.nombre, vigencia_meses: String(c.vigencia_meses), estado: c.estado, tipo: c.tipo || 'OTRO' } : vacio)
     setOpen(true)
   }
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -61,6 +61,7 @@ export function CapacitacionCatalogoPage() {
                 <tr>
                   <th>Código</th>
                   <th>Nombre</th>
+                  <th>Tipo</th>
                   <th className="num">Vigencia (meses)</th>
                   <th>Estado</th>
                   {puedeEditar ? <th /> : null}
@@ -73,6 +74,7 @@ export function CapacitacionCatalogoPage() {
                       <span className="bio-badge bio-badge-accent">{c.codigo}</span>
                     </td>
                     <td>{c.nombre}</td>
+                    <td>{c.tipo || 'OTRO'}</td>
                     <td className="num">{c.vigencia_meses || '—'}</td>
                     <td>
                       <span className={`bio-badge ${c.estado === 'ACTIVO' ? 'bio-badge-ok' : 'bio-badge-muted'}`}>{c.estado === 'ACTIVO' ? 'Activo' : 'Inactivo'}</span>
@@ -119,6 +121,15 @@ export function CapacitacionCatalogoPage() {
           <label style={{ gridColumn: '1 / -1' }}>
             <span className="bio-label">Nombre</span>
             <input className="bio-input" maxLength={120} value={form.nombre} onChange={set('nombre')} />
+          </label>
+          <label>
+            <span className="bio-label">Tipo</span>
+            <select className="bio-select" value={form.tipo} onChange={set('tipo')}>
+              <option value="INDUCCION">Inducción</option>
+              <option value="FORMACION">Formación</option>
+              <option value="EVALUACION">Evaluación</option>
+              <option value="OTRO">Otro</option>
+            </select>
           </label>
           <label>
             <span className="bio-label">Estado</span>
