@@ -171,27 +171,27 @@ export type InsumoGranja = {
   categoria: string
   stock: number
 }
+export type FrenteAlmacen = 'LIMPIO' | 'LAVADERO' | 'INSUMOS'
 export type KardexMov = {
   id: number
-  clase: 'uniforme' | 'insumo'
+  frente: FrenteAlmacen
+  tipo: 'SI' | 'E' | 'S'
   granja_cod: string
   granja_nombre: string
-  fecha: string
-  concepto: string
-  almacen: string
-  almacen_nombre: string
-  tipo_mov: 'SI' | 'E' | 'S'
+  item: string
+  item_nombre: string
+  operacion: string
   cantidad: number
   stock: number
-  ropa_tipo: number
-  ropa_nombre: string
-  insumo_id: number
-  insumo_nombre: string
-  unidad: string
+  par_id: number
+  personal_id: number
   dni: string
   trabajador: string
-  observacion: string
   usuario_registro: string
+  origen: 'web' | 'app'
+  fecha: string
+  observacion: string
+  unidad: string
 }
 
 export function useStockGranja(granja: string) {
@@ -202,7 +202,7 @@ export function useStockGranja(granja: string) {
   })
 }
 
-export function useKardexGranja(params: { granja_cod: string; almacen?: string; desde?: string; hasta?: string; clase?: string }) {
+export function useKardexGranja(params: { granja_cod: string; frente?: string; desde?: string; hasta?: string }) {
   return useQuery({
     queryKey: ['almacen', 'kardex', params],
     queryFn: () => api.get<{ items: KardexMov[] }>('/almacen/granja/kardex', params),
@@ -220,9 +220,11 @@ export function useMovimientoGranja() {
       ropa_tipo: number
       almacen: string
       insumo_id: number
+      item: string
+      frente: FrenteAlmacen
       dni: string
-      trabajador: string
       observacion: string
+      origen: 'web' | 'app'
     }) => api.post('/almacen/granja/movimientos', b),
   )
 }

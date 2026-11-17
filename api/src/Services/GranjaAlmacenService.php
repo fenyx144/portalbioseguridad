@@ -8,9 +8,9 @@ use Bio\Api\Repositories\GranjaAlmacenRepository;
 use Bio\Api\Repositories\GranjaRepository;
 
 /**
- * Kardex de granja. No lee ni escribe imov ni movi_zonas.
- * Depósitos: LIMPIO (Almacén limpio) y LAVADERO (Lavadero).
- * Ropa 1 tránsito, 2 proceso. El stock controlado es el de proceso.
+ * Kardex de granja en bio_almacen_mov. No lee ni escribe imov ni movi_zonas.
+ * frente: LIMPIO, LAVADERO, INSUMOS. tipo: SI, E, S.
+ * item: ropa 1 tránsito o 2 proceso, o id de insumo.
  */
 final class GranjaAlmacenService
 {
@@ -31,10 +31,7 @@ final class GranjaAlmacenService
     {
         $cod = trim((string) ($q['granja_cod'] ?? ''));
         $stock = $this->stock(['granja_cod' => $cod]);
-        $kardex = $cod === '' ? ['data' => ['items' => []]] : $this->kardex([
-            'granja_cod' => $cod,
-            'clase' => 'todos',
-        ]);
+        $kardex = $cod === '' ? ['data' => ['items' => []]] : $this->kardex(['granja_cod' => $cod]);
         $items = $kardex['data']['items'] ?? [];
         $n = count($items);
 
@@ -44,7 +41,7 @@ final class GranjaAlmacenService
                 'granja_cod' => $cod,
                 'granjas' => $this->listaGranjas(),
                 'ropa_tipos' => self::ropaTipos(),
-                'almacenes' => self::almacenes(),
+                'frentes' => self::frentes(),
                 'resumen' => $stock['data']['resumen'] ?? [],
                 'uniformes' => $stock['data']['uniformes'] ?? [],
                 'insumos' => $stock['data']['insumos'] ?? [],
@@ -59,9 +56,13 @@ final class GranjaAlmacenService
         $cod = trim((string) ($q['granja_cod'] ?? ''));
         $nombres = $this->mapaGranjas();
         $sumas = [];
-        foreach ($this->repo->saldosUniforme($cod) as $row) {
-            $key = (string) $row['granja_cod'] . '|' . (int) $row['ropa_tipo'] . '|' . (string) $row['almacen'];
+        $insumoRows = [];
+        foreach ($this->repo->saldos($cod) as $row) {
+            $key = (string) $row['granja_cod'] . '|' . (string) $row['frente'] . '|' . (string) $row['item'];
             $sumas[$key] = round((float) $row['stock'], 2);
+            if ((string) $row['frente'] === 'INSUMOS') {
+                $insumoRows[] = $row;
+            }
         }
 
         $uniformes = [];
@@ -70,8 +71,8 @@ final class GranjaAlmacenService
         foreach ($lista as $g) {
             $gc = (string) $g['codigo'];
             $gn = (string) $g['nombre'];
-            $limpio = $sumas[$gc . '|2|LIMPIO'] ?? 0.0;
-            $lavadero = $sumas[$gc . '|2|LAVADERO'] ?? 0.0;
+            $limpio = $sumas[$gc . '|LIMPIO|2'] ?? 0.0;
+            $lavadero = $sumas[$gc . '|LAVADERO|2'] ?? 0.0;
             $resumen[] = [
                 'granja_cod' => $gc,
                 'granja_nombre' => $gn,
@@ -80,23 +81,21 @@ final class GranjaAlmacenService
             ];
             $uniformes[] = $this->filaUniforme($gc, $gn, 2, 'LIMPIO', $limpio);
             $uniformes[] = $this->filaUniforme($gc, $gn, 2, 'LAVADERO', $lavadero);
-            $tLimpio = $sumas[$gc . '|1|LIMPIO'] ?? null;
-            $tLav = $sumas[$gc . '|1|LAVADERO'] ?? null;
-            if ($tLimpio !== null && abs($tLimpio) > 0.001) {
-                $uniformes[] = $this->filaUniforme($gc, $gn, 1, 'LIMPIO', $tLimpio);
-            }
-            if ($tLav !== null && abs($tLav) > 0.001) {
-                $uniformes[] = $this->filaUniforme($gc, $gn, 1, 'LAVADERO', $tLav);
+            foreach (['LIMPIO', 'LAVADERO'] as $frente) {
+                $clave = $gc . '|' . $frente . '|1';
+                if (isset($sumas[$clave]) && abs($sumas[$clave]) > 0.001) {
+                    $uniformes[] = $this->filaUniforme($gc, $gn, 1, $frente, $sumas[$clave]);
+                }
             }
         }
 
         $insumos = [];
-        foreach ($this->repo->saldosInsumo($cod) as $row) {
+        foreach ($insumoRows as $row) {
             $gc = (string) $row['granja_cod'];
             $insumos[] = [
                 'granja_cod' => $gc,
                 'granja_nombre' => $nombres[$gc] ?? $gc,
-                'insumo_id' => (int) $row['insumo_id'],
+                'insumo_id' => (int) $row['item'],
                 'codigo' => (string) $row['codigo'],
                 'nombre' => (string) $row['nombre'],
                 'unidad' => (string) $row['unidad'],
@@ -125,74 +124,38 @@ final class GranjaAlmacenService
         }
         $nombre = $this->granjas->nombre($cod);
         $rows = [];
-        foreach ($this->repo->movimientosUniforme($cod) as $row) {
+        foreach ($this->repo->movimientos($cod) as $row) {
+            $frente = (string) $row['frente'];
+            $item = (string) $row['item'];
+            $esInsumo = $frente === 'INSUMOS';
             $rows[] = [
                 'id' => (int) $row['id'],
-                'clase' => 'uniforme',
+                'frente' => $frente,
+                'tipo' => (string) $row['tipo'],
                 'granja_cod' => $cod,
                 'granja_nombre' => $nombre !== '' ? $nombre : $cod,
-                'fecha' => (string) $row['fecha'],
-                'concepto' => (string) $row['concepto'],
-                'almacen' => (string) $row['almacen'],
-                'almacen_nombre' => self::nombreAlmacen((string) $row['almacen']),
-                'tipo_mov' => (string) $row['tipo_mov'],
+                'item' => $item,
+                'item_nombre' => $esInsumo ? (string) $row['insumo_nombre'] : self::nombreRopa((int) $item),
+                'operacion' => (string) $row['operacion'],
                 'cantidad' => round((float) $row['cantidad'], 2),
-                'ropa_tipo' => (int) $row['ropa_tipo'],
-                'ropa_nombre' => self::nombreRopa((int) $row['ropa_tipo']),
-                'insumo_id' => 0,
-                'insumo_nombre' => '',
-                'unidad' => 'und',
+                'par_id' => $row['par_id'] !== null ? (int) $row['par_id'] : 0,
+                'personal_id' => $row['personal_id'] !== null ? (int) $row['personal_id'] : 0,
                 'dni' => (string) $row['dni'],
                 'trabajador' => (string) $row['trabajador'],
-                'observacion' => (string) $row['observacion'],
                 'usuario_registro' => (string) $row['usuario_registro'],
-                'par_id' => $row['par_id'] !== null ? (int) $row['par_id'] : 0,
-                '_orden' => (int) $row['id'],
-            ];
-        }
-        foreach ($this->repo->movimientosInsumo($cod) as $row) {
-            $rows[] = [
-                'id' => (int) $row['id'],
-                'clase' => 'insumo',
-                'granja_cod' => $cod,
-                'granja_nombre' => $nombre !== '' ? $nombre : $cod,
+                'origen' => (string) $row['origen'],
                 'fecha' => (string) $row['fecha'],
-                'concepto' => (string) $row['concepto'],
-                'almacen' => '',
-                'almacen_nombre' => '',
-                'tipo_mov' => (string) $row['tipo_mov'],
-                'cantidad' => round((float) $row['cantidad'], 2),
-                'ropa_tipo' => 0,
-                'ropa_nombre' => '',
-                'insumo_id' => (int) $row['insumo_id'],
-                'insumo_nombre' => (string) $row['nombre'],
-                'unidad' => (string) $row['unidad'],
-                'dni' => '',
-                'trabajador' => '',
                 'observacion' => (string) $row['observacion'],
-                'usuario_registro' => (string) $row['usuario_registro'],
-                'par_id' => 0,
-                '_orden' => (int) $row['id'],
+                'unidad' => $esInsumo ? (string) $row['unidad'] : 'und',
             ];
         }
-        usort($rows, static function (array $a, array $b): int {
-            $c = strcmp((string) $a['fecha'], (string) $b['fecha']);
-            if ($c !== 0) {
-                return $c;
-            }
-            if ($a['clase'] !== $b['clase']) {
-                return $a['clase'] === 'uniforme' ? -1 : 1;
-            }
-
-            return $a['_orden'] - $b['_orden'];
-        });
         $rows = $this->conStock($rows);
+        $frente = strtoupper(trim((string) ($q['frente'] ?? ($q['almacen'] ?? ''))));
         $filtradas = $this->filtrar(
             $rows,
             self::fecha($q['desde'] ?? ''),
             self::fecha($q['hasta'] ?? ''),
-            strtoupper(trim((string) ($q['almacen'] ?? ''))),
-            strtolower(trim((string) ($q['clase'] ?? 'todos')))
+            $frente
         );
 
         return ['ok' => true, 'data' => ['items' => $filtradas]];
@@ -205,13 +168,9 @@ final class GranjaAlmacenService
         $granja = trim((string) ($body['granja_cod'] ?? ''));
         $fecha = self::fecha($body['fecha'] ?? '');
         $cantidad = round((float) ($body['cantidad'] ?? 0), 2);
-        $ropa = (int) ($body['ropa_tipo'] ?? 2);
-        if ($ropa === 0) {
-            $ropa = 2;
-        }
-        $almacen = strtoupper(trim((string) ($body['almacen'] ?? 'LIMPIO')));
         $obs = self::cortar(trim((string) ($body['observacion'] ?? '')), 255);
         $usuario = self::cortar(trim($usuario), 30);
+        $origen = self::origenDe($body);
 
         if ($granja === '') {
             return self::error('validation', 'Granja requerida');
@@ -225,99 +184,83 @@ final class GranjaAlmacenService
         if ($cantidad <= 0) {
             return self::error('validation', 'Cantidad inválida');
         }
-        if ($ropa !== 1 && $ropa !== 2) {
-            return self::error('validation', 'Tipo de ropa inválido');
-        }
 
         $persona = $this->persona($body);
-        $baseU = [
+        $esInsumo = $op === 'SI_INSUMO' || $op === 'CARGA_INSUMO' || $op === 'CONSUMO';
+        $item = trim((string) ($body['item'] ?? ''));
+        if ($item === '') {
+            $item = $esInsumo ? (string) (int) ($body['insumo_id'] ?? 0) : (string) (int) ($body['ropa_tipo'] ?? 2);
+        }
+        if ($item === '0' || $item === '') {
+            $item = $esInsumo ? '' : '2';
+        }
+
+        $base = [
             'granja_cod' => $granja,
-            'ropa_tipo' => $ropa,
+            'item' => $item,
             'cantidad' => $cantidad,
+            'operacion' => $op,
+            'par_id' => null,
             'personal_id' => $persona['id'],
             'dni' => $persona['dni'],
-            'trabajador' => $persona['nombre'],
+            'usuario_registro' => $usuario,
+            'origen' => $origen,
             'fecha' => $fecha,
             'observacion' => $obs,
-            'usuario_registro' => $usuario,
-            'par_id' => null,
         ];
 
-        if ($op === 'SI_UNIFORME' || $op === 'CARGA_UNIFORME') {
-            if ($almacen !== 'LIMPIO' && $almacen !== 'LAVADERO') {
-                return self::error('validation', 'Almacén inválido');
+        if ($op === 'SI_UNIFORME' || $op === 'CARGA_UNIFORME' || $op === 'ENTREGA' || $op === 'RECEPCION' || $op === 'LAVADO') {
+            if ($item !== '1' && $item !== '2') {
+                return self::error('validation', 'Tipo de ropa inválido');
             }
-            $id = $this->repo->insertarUniforme($baseU + [
-                'almacen' => $almacen,
-                'tipo_mov' => $op === 'SI_UNIFORME' ? 'SI' : 'E',
-                'concepto' => 'CARGA',
-            ]);
-
-            return $this->okMov($id, 0, $granja, $ropa, 0);
-        }
-
-        if ($op === 'ENTREGA') {
-            if ($this->repo->saldoUniforme($granja, $ropa, 'LIMPIO') + 0.001 < $cantidad) {
+            $frente = strtoupper(trim((string) ($body['frente'] ?? ($body['almacen'] ?? 'LIMPIO'))));
+            if ($op === 'ENTREGA') {
+                $frente = 'LIMPIO';
+            }
+            if ($op === 'RECEPCION') {
+                $frente = 'LAVADERO';
+            }
+            if ($op !== 'LAVADO' && $frente !== 'LIMPIO' && $frente !== 'LAVADERO') {
+                return self::error('validation', 'Frente inválido');
+            }
+            $tipo = 'E';
+            if ($op === 'SI_UNIFORME') {
+                $tipo = 'SI';
+            } elseif ($op === 'ENTREGA') {
+                $tipo = 'S';
+            }
+            if ($op === 'ENTREGA' && $this->repo->saldo($granja, 'LIMPIO', $item) + 0.001 < $cantidad) {
                 return self::error('stock', 'Stock insuficiente');
             }
-            $id = $this->repo->insertarUniforme($baseU + [
-                'almacen' => 'LIMPIO',
-                'tipo_mov' => 'S',
-                'concepto' => 'ENTREGA',
-            ]);
+            if ($op === 'LAVADO') {
+                if ($this->repo->saldo($granja, 'LAVADERO', $item) + 0.001 < $cantidad) {
+                    return self::error('stock', 'Stock insuficiente');
+                }
+                $sale = $this->repo->insertar($base + ['frente' => 'LAVADERO', 'tipo' => 'S']);
+                $entra = $this->repo->insertar($base + ['frente' => 'LIMPIO', 'tipo' => 'E']);
+                $this->repo->marcarPar($sale, $entra);
 
-            return $this->okMov($id, 0, $granja, $ropa, 0);
-        }
-
-        if ($op === 'RECEPCION') {
-            $id = $this->repo->insertarUniforme($baseU + [
-                'almacen' => 'LAVADERO',
-                'tipo_mov' => 'E',
-                'concepto' => 'RECEPCION',
-            ]);
-
-            return $this->okMov($id, 0, $granja, $ropa, 0);
-        }
-
-        if ($op === 'LAVADO') {
-            if ($this->repo->saldoUniforme($granja, $ropa, 'LAVADERO') + 0.001 < $cantidad) {
-                return self::error('stock', 'Stock insuficiente');
+                return $this->okMov($sale, $entra, $granja, $item, 0);
             }
-            $sale = $this->repo->insertarUniforme($baseU + [
-                'almacen' => 'LAVADERO',
-                'tipo_mov' => 'S',
-                'concepto' => 'LAVADO',
-            ]);
-            $entra = $this->repo->insertarUniforme($baseU + [
-                'almacen' => 'LIMPIO',
-                'tipo_mov' => 'E',
-                'concepto' => 'LAVADO',
-            ]);
-            $this->repo->marcarPar($sale, $entra);
+            $id = $this->repo->insertar($base + ['frente' => $frente, 'tipo' => $tipo]);
 
-            return $this->okMov($sale, $entra, $granja, $ropa, 0);
+            return $this->okMov($id, 0, $granja, $item, 0);
         }
 
-        if ($op === 'SI_INSUMO' || $op === 'CARGA_INSUMO' || $op === 'CONSUMO') {
-            $insumoId = (int) ($body['insumo_id'] ?? 0);
+        if ($esInsumo) {
+            $insumoId = (int) $item;
             if ($insumoId <= 0 || !$this->repo->insumoExiste($insumoId)) {
                 return self::error('validation', 'Insumo requerido');
             }
-            if ($op === 'CONSUMO' && $this->repo->saldoInsumo($granja, $insumoId) + 0.001 < $cantidad) {
+            $item = (string) $insumoId;
+            $base['item'] = $item;
+            $tipo = $op === 'SI_INSUMO' ? 'SI' : ($op === 'CONSUMO' ? 'S' : 'E');
+            if ($op === 'CONSUMO' && $this->repo->saldo($granja, 'INSUMOS', $item) + 0.001 < $cantidad) {
                 return self::error('stock', 'Stock insuficiente');
             }
-            $id = $this->repo->insertarInsumo([
-                'granja_cod' => $granja,
-                'insumo_id' => $insumoId,
-                'tipo_mov' => $op === 'SI_INSUMO' ? 'SI' : ($op === 'CONSUMO' ? 'S' : 'E'),
-                'cantidad' => $cantidad,
-                'concepto' => $op === 'CONSUMO' ? 'CONSUMO' : 'CARGA',
-                'fecha' => $fecha,
-                'observacion' => $obs,
-                'usuario_registro' => $usuario,
-            ]);
+            $id = $this->repo->insertar($base + ['frente' => 'INSUMOS', 'tipo' => $tipo]);
 
-            return $this->okMov($id, 0, $granja, $ropa, $insumoId);
+            return $this->okMov($id, 0, $granja, '2', $insumoId);
         }
 
         return self::error('validation', 'Operación inválida');
@@ -331,31 +274,26 @@ final class GranjaAlmacenService
     {
         $id = (int) ($body['personal_id'] ?? 0);
         $dni = self::cortar(trim((string) ($body['dni'] ?? '')), 15);
-        $nombre = self::cortar(trim((string) ($body['trabajador'] ?? '')), 120);
         $hallado = $this->repo->personal($id, $dni);
         if ($hallado !== null) {
-            return [
-                'id' => $hallado['id'],
-                'dni' => $hallado['dni'],
-                'nombre' => $hallado['nombre'] !== '' ? $hallado['nombre'] : $nombre,
-            ];
+            return ['id' => $hallado['id'], 'dni' => $hallado['dni'], 'nombre' => $hallado['nombre']];
         }
 
-        return ['id' => $id > 0 ? $id : null, 'dni' => $dni, 'nombre' => $nombre];
+        return ['id' => $id > 0 ? $id : null, 'dni' => $dni, 'nombre' => ''];
     }
 
     /** @return array{ok: true, data: array<string, mixed>} */
-    private function okMov(int $id, int $par, string $granja, int $ropa, int $insumoId): array
+    private function okMov(int $id, int $par, string $granja, string $item, int $insumoId): array
     {
         return [
             'ok' => true,
             'data' => [
                 'id' => $id,
                 'par_id' => $par,
-                'limpio' => $this->repo->saldoUniforme($granja, $ropa, 'LIMPIO'),
-                'lavadero' => $this->repo->saldoUniforme($granja, $ropa, 'LAVADERO'),
+                'limpio' => $this->repo->saldo($granja, 'LIMPIO', $item),
+                'lavadero' => $this->repo->saldo($granja, 'LAVADERO', $item),
                 'insumo_id' => $insumoId,
-                'insumo_stock' => $insumoId > 0 ? $this->repo->saldoInsumo($granja, $insumoId) : 0,
+                'insumo_stock' => $insumoId > 0 ? $this->repo->saldo($granja, 'INSUMOS', (string) $insumoId) : 0,
             ],
         ];
     }
@@ -369,16 +307,13 @@ final class GranjaAlmacenService
         $run = [];
         $out = [];
         foreach ($rows as $row) {
-            $key = $row['clase'] === 'uniforme'
-                ? 'U|' . $row['ropa_tipo'] . '|' . $row['almacen']
-                : 'I|' . $row['insumo_id'];
+            $key = $row['frente'] . '|' . $row['item'];
             if (!isset($run[$key])) {
                 $run[$key] = 0.0;
             }
-            $sign = $row['tipo_mov'] === 'S' ? -1 : 1;
+            $sign = $row['tipo'] === 'S' ? -1 : 1;
             $run[$key] = round($run[$key] + $sign * (float) $row['cantidad'], 2);
             $row['stock'] = $run[$key];
-            unset($row['_orden']);
             $out[] = $row;
         }
 
@@ -389,14 +324,11 @@ final class GranjaAlmacenService
      * @param list<array<string, mixed>> $rows
      * @return list<array<string, mixed>>
      */
-    private function filtrar(array $rows, string $desde, string $hasta, string $almacen, string $clase): array
+    private function filtrar(array $rows, string $desde, string $hasta, string $frente): array
     {
         $out = [];
         foreach ($rows as $row) {
-            if ($clase !== '' && $clase !== 'todos' && $row['clase'] !== $clase) {
-                continue;
-            }
-            if ($almacen !== '' && ($row['clase'] !== 'uniforme' || $row['almacen'] !== $almacen)) {
+            if ($frente !== '' && $row['frente'] !== $frente) {
                 continue;
             }
             if ($desde !== '' && (string) $row['fecha'] < $desde) {
@@ -412,15 +344,15 @@ final class GranjaAlmacenService
     }
 
     /** @return array<string, mixed> */
-    private function filaUniforme(string $granja, string $nombre, int $ropa, string $almacen, float $stock): array
+    private function filaUniforme(string $granja, string $nombre, int $ropa, string $frente, float $stock): array
     {
         return [
             'granja_cod' => $granja,
             'granja_nombre' => $nombre,
             'ropa_tipo' => $ropa,
             'ropa_nombre' => self::nombreRopa($ropa),
-            'almacen' => $almacen,
-            'almacen_nombre' => self::nombreAlmacen($almacen),
+            'frente' => $frente,
+            'item' => (string) $ropa,
             'stock' => round($stock, 2),
         ];
     }
@@ -457,22 +389,18 @@ final class GranjaAlmacenService
     }
 
     /** @return list<array{codigo: string, nombre: string}> */
-    private static function almacenes(): array
+    private static function frentes(): array
     {
         return [
             ['codigo' => 'LIMPIO', 'nombre' => 'Almacén limpio'],
             ['codigo' => 'LAVADERO', 'nombre' => 'Lavadero'],
+            ['codigo' => 'INSUMOS', 'nombre' => 'Insumos'],
         ];
     }
 
     private static function nombreRopa(int $tipo): string
     {
         return $tipo === 1 ? 'Ropa de tránsito' : 'Ropa para el proceso';
-    }
-
-    private static function nombreAlmacen(string $cod): string
-    {
-        return $cod === 'LAVADERO' ? 'Lavadero' : 'Almacén limpio';
     }
 
     /** @param mixed $valor */
@@ -488,6 +416,24 @@ final class GranjaAlmacenService
         }
 
         return $f;
+    }
+
+    /** @param array<string, mixed> $body */
+    private static function origenDe(array $body): string
+    {
+        $o = strtolower(trim((string) ($body['origen'] ?? '')));
+        if ($o === 'web' || $o === 'app') {
+            return $o;
+        }
+        $auth = '';
+        if (!empty($_SERVER['HTTP_AUTHORIZATION']) && is_string($_SERVER['HTTP_AUTHORIZATION'])) {
+            $auth = $_SERVER['HTTP_AUTHORIZATION'];
+        }
+        if (strncmp($auth, 'Bearer ', 7) === 0) {
+            return 'app';
+        }
+
+        return 'web';
     }
 
     private static function cortar(string $s, int $n): string

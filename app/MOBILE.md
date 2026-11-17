@@ -21,10 +21,10 @@ La app (`gc_bioseguridad`) tiene **una sola sección Almacén**. Auth: `Authoriz
 | Login | POST | `/auth/login` |
 | Pantalla (granjas, stock, insumos, últimos movimientos) | GET | `/almacen/campo-context?granja_cod=` |
 | Stock limpio / lavadero e insumos | GET | `/almacen/granja/stock?granja_cod=` |
-| Kardex | GET | `/almacen/granja/kardex?granja_cod=&almacen=&desde=&hasta=&clase=` |
+| Kardex | GET | `/almacen/granja/kardex?granja_cod=&frente=&desde=&hasta=` |
 | Registrar movimiento | POST | `/almacen/granja/movimientos` |
 
-`clase`: `uniforme`, `insumo` o `todos`. `almacen`: `LIMPIO` o `LAVADERO`.
+Una tabla `bio_almacen_mov`. `frente`: `LIMPIO`, `LAVADERO` o `INSUMOS`. `tipo`: `SI`, `E` o `S`. `item`: `1` o `2` (ropa) en los frentes de uniforme; id de insumo si `frente` es `INSUMOS`.
 
 POST `/almacen/granja/movimientos`:
 
@@ -34,22 +34,22 @@ POST `/almacen/granja/movimientos`:
   "granja_cod": "001",
   "fecha": "2026-11-17",
   "cantidad": 1,
-  "ropa_tipo": 2,
-  "almacen": "LIMPIO",
-  "insumo_id": 0,
+  "frente": "LIMPIO",
+  "item": "2",
   "dni": "",
-  "trabajador": "",
-  "observacion": ""
+  "personal_id": 0,
+  "observacion": "",
+  "origen": "app"
 }
 ```
 
-`operacion`: `SI_UNIFORME`, `CARGA_UNIFORME`, `ENTREGA`, `RECEPCION`, `LAVADO`, `SI_INSUMO`, `CARGA_INSUMO`, `CONSUMO`.
+`operacion`: `SI_UNIFORME`, `CARGA_UNIFORME`, `ENTREGA`, `RECEPCION`, `LAVADO`, `SI_INSUMO`, `CARGA_INSUMO`, `CONSUMO`. `origen`: `web` o `app` (si se omite y hay Bearer, queda `app`).
 
-- `ENTREGA`: salida del Almacén limpio (uniforme al trabajador que llega).
-- `RECEPCION`: entrada al Lavadero (uniforme al retirarse).
-- `LAVADO`: salida del Lavadero y entrada al Almacén limpio, misma cantidad.
-- Ropa `1` tránsito, `2` proceso. El stock de la pantalla es el de proceso.
-- `campo-context` trae `resumen[]` con `limpio` y `lavadero`, `insumos[]`, `movimientos[]` (kardex con `tipo_mov` SI/E/S y `stock`), `ropa_tipos` y `almacenes`.
+- `ENTREGA`: `S` en `LIMPIO`.
+- `RECEPCION`: `E` en `LAVADERO`.
+- `LAVADO`: `S` en `LAVADERO` y `E` en `LIMPIO`, misma cantidad, mismo `par_id`.
+- Ropa `1` tránsito, `2` proceso. El stock de la pantalla es el ítem `2`.
+- `campo-context` trae `resumen[]` (`limpio`, `lavadero`), `insumos[]`, `frentes`, `ropa_tipos` y `movimientos[]` con `frente`, `tipo`, `item`, `operacion`, `origen`, `par_id` y `stock`.
 
 Aplicar `db/migrations/015_almacen_granja_kardex.sql` antes de usar esta sección. No usa `imov` ni `movi_zonas`.
 

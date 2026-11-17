@@ -29,12 +29,10 @@ const operaciones: { value: OperacionAlmacen; label: string }[] = [
   { value: 'CONSUMO', label: 'Consumo de insumo' },
 ]
 
-const conceptos: Record<string, string> = {
-  CARGA: 'Carga',
-  ENTREGA: 'Entrega',
-  RECEPCION: 'Recepción',
-  LAVADO: 'Lavado',
-  CONSUMO: 'Consumo',
+const frentes: Record<string, string> = {
+  LIMPIO: 'Almacén limpio',
+  LAVADERO: 'Lavadero',
+  INSUMOS: 'Insumos',
 }
 
 function vistaDe(path: string): 'stock' | 'kardex' | 'registro' {
@@ -48,18 +46,16 @@ export function AlmacenPage() {
   const vista = vistaDe(pathname)
   const { user } = useAuth()
   const [granja, setGranja] = useState(() => sessionStorage.getItem(GRANJA_KEY) ?? '')
-  const [almacen, setAlmacen] = useState('')
-  const [clase, setClase] = useState('todos')
+  const [frente, setFrente] = useState('')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [op, setOp] = useState<OperacionAlmacen>('ENTREGA')
   const [fecha, setFecha] = useState(todayIso())
   const [cantidad, setCantidad] = useState('1')
   const [ropa, setRopa] = useState('2')
-  const [deposito, setDeposito] = useState('LIMPIO')
+  const [deposito, setDeposito] = useState<'LIMPIO' | 'LAVADERO'>('LIMPIO')
   const [insumoId, setInsumoId] = useState('')
   const [dni, setDni] = useState('')
-  const [trabajador, setTrabajador] = useState('')
   const [obs, setObs] = useState('')
   const [aviso, setAviso] = useState<{ ok: boolean; msg: string } | null>(null)
 
@@ -72,7 +68,7 @@ export function AlmacenPage() {
     queryFn: () => api.get<{ items: { codigo: string; nombre: string }[] }>('/granjas'),
   })
   const stock = useStockGranja(granja)
-  const kardex = useKardexGranja({ granja_cod: granja, almacen, desde, hasta, clase })
+  const kardex = useKardexGranja({ granja_cod: granja, frente, desde, hasta })
   const insumos = useInsumos()
   const guardar = useMovimientoGranja()
 
@@ -99,9 +95,11 @@ export function AlmacenPage() {
         ropa_tipo: Number(ropa),
         almacen: deposito,
         insumo_id: Number(insumoId || 0),
+        item: esInsumo ? insumoId : ropa,
+        frente: esInsumo ? 'INSUMOS' : op === 'ENTREGA' ? 'LIMPIO' : op === 'RECEPCION' ? 'LAVADERO' : deposito,
         dni,
-        trabajador,
         observacion: obs,
+        origen: 'web',
       },
       {
         onSuccess: () => {
@@ -199,19 +197,12 @@ export function AlmacenPage() {
         <>
           <div className="bio-card bio-filter-bar">
             <label>
-              <span className="bio-label">Clase</span>
-              <select className="bio-select" value={clase} onChange={(e) => setClase(e.target.value)}>
-                <option value="todos">Todos</option>
-                <option value="uniforme">Uniformes</option>
-                <option value="insumo">Insumos</option>
-              </select>
-            </label>
-            <label>
-              <span className="bio-label">Almacén</span>
-              <select className="bio-select" value={almacen} onChange={(e) => setAlmacen(e.target.value)}>
+              <span className="bio-label">Frente</span>
+              <select className="bio-select" value={frente} onChange={(e) => setFrente(e.target.value)}>
                 <option value="">Todos</option>
                 <option value="LIMPIO">Almacén limpio</option>
                 <option value="LAVADERO">Lavadero</option>
+                <option value="INSUMOS">Insumos</option>
               </select>
             </label>
             <label>
@@ -234,26 +225,28 @@ export function AlmacenPage() {
                   <thead>
                     <tr>
                       <th>Fecha</th>
-                      <th>Concepto</th>
-                      <th>Detalle</th>
-                      <th>Almacén</th>
+                      <th>Operación</th>
+                      <th>Frente</th>
+                      <th>Ítem</th>
                       <th>SI/E/S</th>
                       <th className="num">Cantidad</th>
                       <th className="num">Stock</th>
-                      <th>Trabajador</th>
+                      <th>DNI</th>
+                      <th>Origen</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(kardex.data?.items ?? []).map((m) => (
-                      <tr key={`${m.clase}-${m.id}`}>
+                      <tr key={m.id}>
                         <td>{formatDate(m.fecha)}</td>
-                        <td>{conceptos[m.concepto] ?? m.concepto}</td>
-                        <td>{m.clase === 'uniforme' ? m.ropa_nombre : m.insumo_nombre}</td>
-                        <td>{m.almacen_nombre || '—'}</td>
-                        <td>{m.tipo_mov}</td>
+                        <td>{operaciones.find((o) => o.value === m.operacion)?.label ?? m.operacion}</td>
+                        <td>{frentes[m.frente] ?? m.frente}</td>
+                        <td>{m.item_nombre}</td>
+                        <td>{m.tipo}</td>
                         <td className="num">{fmt(m.cantidad)}</td>
                         <td className="num">{fmt(m.stock)}</td>
-                        <td>{m.trabajador || m.dni || '—'}</td>
+                        <td>{m.dni || '—'}</td>
+                        <td>{m.origen}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -309,23 +302,17 @@ export function AlmacenPage() {
             {esCargaUnif ? (
               <label>
                 <span className="bio-label">Almacén</span>
-                <select className="bio-select" value={deposito} onChange={(e) => setDeposito(e.target.value)}>
+                <select className="bio-select" value={deposito} onChange={(e) => setDeposito(e.target.value as 'LIMPIO' | 'LAVADERO')}>
                   <option value="LIMPIO">Almacén limpio</option>
                   <option value="LAVADERO">Lavadero</option>
                 </select>
               </label>
             ) : null}
             {esPersona ? (
-              <>
-                <label>
-                  <span className="bio-label">DNI</span>
-                  <input className="bio-input" value={dni} onChange={(e) => setDni(e.target.value)} />
-                </label>
-                <label style={{ flex: '1 1 14rem' }}>
-                  <span className="bio-label">Trabajador</span>
-                  <input className="bio-input" value={trabajador} onChange={(e) => setTrabajador(e.target.value)} />
-                </label>
-              </>
+              <label>
+                <span className="bio-label">DNI</span>
+                <input className="bio-input" value={dni} onChange={(e) => setDni(e.target.value)} />
+              </label>
             ) : null}
             <label style={{ flex: '1 1 16rem' }}>
               <span className="bio-label">Observación</span>
