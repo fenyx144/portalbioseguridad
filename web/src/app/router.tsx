@@ -16,7 +16,6 @@ import { CapacitacionesPage } from '../features/capacitaciones/CapacitacionesPag
 import { CapacitacionCatalogoPage } from '../features/capacitaciones/CapacitacionCatalogoPage'
 import { AlmacenPage } from '../features/almacen/AlmacenPage'
 import { InsumosPage } from '../features/almacen/InsumosPage'
-import { StockPage } from '../features/almacen/StockPage'
 import { ArticulosIngresoPage } from '../features/articulos/ArticulosIngresoPage'
 import { AlcoholemiaPage } from '../features/operacion/AlcoholemiaPage'
 import { AnomaliasPage } from '../features/operacion/AnomaliasPage'
@@ -52,7 +51,7 @@ export const router = createBrowserRouter(
             { path: '/almacen/registro', element: <AlmacenPage /> },
             { path: '/almacen/insumos', element: <InsumosPage /> },
             { path: '/articulos-ingreso', element: <ArticulosIngresoPage /> },
-            { path: '/almacen/stock', element: <StockPage /> },
+            { path: '/almacen/stock', element: <Navigate to="/almacen" replace /> },
             { path: '/reportes/personal-registrado', element: <ReporteRegistradoPage /> },
             { path: '/reportes/personal-asignado', element: <ReporteAsignadoPage /> },
             { path: '/reportes/capacitaciones', element: <ReporteCapacitacionesPage /> },

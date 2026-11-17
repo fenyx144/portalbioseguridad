@@ -78,7 +78,7 @@ export function ReporteStockIndumentariaPage() {
   }
 
   if (!isGrs) {
-    return <Navigate to="/almacen/stock" replace />
+    return <Navigate to="/almacen" replace />
   }
 
   return (
