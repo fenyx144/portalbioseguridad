@@ -19,39 +19,45 @@ La app (`gc_bioseguridad`) tiene **una sola sección Almacén**. Auth: `Authoriz
 | Uso | Método | Ruta |
 |-----|--------|------|
 | Login | POST | `/auth/login` |
-| Pantalla (granjas, stock, insumos, últimos movimientos) | GET | `/almacen/campo-context?granja_cod=` |
-| Stock limpio / lavadero e insumos | GET | `/almacen/granja/stock?granja_cod=` |
-| Kardex | GET | `/almacen/granja/kardex?granja_cod=&frente=&desde=&hasta=` |
-| Registrar movimiento | POST | `/almacen/granja/movimientos` |
+| Pantalla | GET | `/almacen/campo-context?granja_cod=` |
+| Stock | GET | `/almacen/granja/stock?granja_cod=` |
+| Kardex | GET | `/almacen/granja/kardex?granja_cod=&categoria=&desde=&hasta=` |
+| Registrar | POST | `/almacen/granja/movimientos` |
 
-Una tabla `bio_almacen_mov`. `frente`: `LIMPIO`, `LAVADERO` o `INSUMOS`. `tipo`: `SI`, `E` o `S`. `item`: `1` o `2` (ropa) en los frentes de uniforme; id de insumo si `frente` es `INSUMOS`.
+Tabla `bio_almacen_mov`. `frente`: `LIMPIO`, `LAVADERO`, `IMPLEMENTOS`, `INSUMOS`. `tipo`: `SI`, `E`, `S`. `categoria`: `UNIFORME` (ítem `1` tránsito o `2` proceso), `IMPLEMENTO` (id de `bio_insumo` EPP/INDUMENTARIA), `INSUMO` (id DESINFECTANTE/OTRO).
 
-POST `/almacen/granja/movimientos`:
+El rol sale de la sesión (`actor` grs o empresa). GRS solo `ENVIO` y `SI`, todas las granjas. Empresa solo sus granjas y `CONSUMO`, `ENTREGA`, `DEVOLUCION`, `LAVADO`, `RELEVO`. Otro rol responde 403.
+
+POST:
 
 ```json
 {
   "operacion": "ENTREGA",
   "granja_cod": "001",
-  "fecha": "2026-11-17",
-  "cantidad": 1,
-  "frente": "LIMPIO",
+  "categoria": "UNIFORME",
   "item": "2",
-  "dni": "",
+  "cantidad": 1,
+  "fecha": "2026-11-17",
   "personal_id": 0,
-  "observacion": "",
+  "dni": "",
+  "personal_id_sale": 0,
+  "dni_sale": "",
+  "personal_id_entra": 0,
+  "dni_entra": "",
   "origen": "app"
 }
 ```
 
-`operacion`: `SI_UNIFORME`, `CARGA_UNIFORME`, `ENTREGA`, `RECEPCION`, `LAVADO`, `SI_INSUMO`, `CARGA_INSUMO`, `CONSUMO`. `origen`: `web` o `app` (si se omite y hay Bearer, queda `app`).
+- `ENVIO` / `SI` (GRS): entrada o saldo en limpio, implementos o insumos.
+- `CONSUMO`: `S` en `INSUMOS`.
+- `ENTREGA`: `S` en `LIMPIO` (uniforme) o `IMPLEMENTOS`.
+- `DEVOLUCION`: `E` en `LAVADERO` (uniforme) o `IMPLEMENTOS` (vuelve al stock).
+- `LAVADO`: `S` en `LAVADERO` y `E` en `LIMPIO`, mismo `par_id`.
+- `RELEVO`: un `par_id`. Uniforme del saliente `E` en lavadero, uniforme limpio `S` al entrante. Cada implemento con stock: `S` del saliente y `E` del entrante (el stock de la granja no cambia).
 
-- `ENTREGA`: `S` en `LIMPIO`.
-- `RECEPCION`: `E` en `LAVADERO`.
-- `LAVADO`: `S` en `LAVADERO` y `E` en `LIMPIO`, misma cantidad, mismo `par_id`.
-- Ropa `1` tránsito, `2` proceso. El stock de la pantalla es el ítem `2`.
-- `campo-context` trae `resumen[]` (`limpio`, `lavadero`), `insumos[]`, `frentes`, `ropa_tipos` y `movimientos[]` con `frente`, `tipo`, `item`, `operacion`, `origen`, `par_id` y `stock`.
+`campo-context` y stock traen `rol`, `acciones`, `granjas`, `resumen` (limpio/lavadero), `implementos`, `insumos`. Kardex filtra con `categoria`.
 
-Aplicar `db/migrations/015_almacen_granja_kardex.sql` antes de usar esta sección. No usa `imov` ni `movi_zonas`.
+Si `015` ya se aplicó, hace falta `db/migrations/016_almacen_frente_implementos.sql` (no ejecutada). No usa `imov` ni `movi_zonas`.
 
 <!--
 Entrega GRS → proveedor/tercero, fuera de uso. Rutas comentadas, código conservado:

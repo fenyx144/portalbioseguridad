@@ -96,7 +96,7 @@ final class AlmacenController extends BaseController
     public static function campoContext(): void
     {
         self::auth();
-        self::respond((new AlmacenService())->campoContext(self::query()));
+        self::respondRol((new AlmacenService())->campoContext(self::query()));
     }
 
     public static function relevos(): void
@@ -120,18 +120,25 @@ final class AlmacenController extends BaseController
     public static function stockGranja(): void
     {
         self::auth();
-        self::respond((new GranjaAlmacenService())->stock(self::query()));
+        self::respondRol((new GranjaAlmacenService())->stock(self::query()));
     }
 
     public static function kardexGranja(): void
     {
         self::auth();
-        self::respond((new GranjaAlmacenService())->kardex(self::query()));
+        self::respondRol((new GranjaAlmacenService())->kardex(self::query()));
     }
 
     public static function movimientoGranja(): void
     {
         $user = self::auth();
-        self::respond((new GranjaAlmacenService())->registrar(self::body(), $user['codigo']), 422);
+        self::respondRol((new GranjaAlmacenService())->registrar(self::body(), $user['codigo']));
+    }
+
+    /** @param array<string, mixed> $result */
+    private static function respondRol(array $result): void
+    {
+        $code = (string) ($result['error']['code'] ?? '');
+        self::respond($result, $code === 'forbidden' ? 403 : 422);
     }
 }

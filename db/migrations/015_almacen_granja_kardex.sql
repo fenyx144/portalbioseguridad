@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS `bio_ropa_tipo` (
 
 CREATE TABLE IF NOT EXISTS `bio_almacen_mov` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `frente` enum('LIMPIO','LAVADERO','INSUMOS') NOT NULL,
+  `frente` enum('LIMPIO','LAVADERO','INSUMOS','IMPLEMENTOS') NOT NULL,
   `tipo` enum('SI','E','S') NOT NULL,
   `granja_cod` varchar(20) NOT NULL,
   `item` varchar(20) NOT NULL,

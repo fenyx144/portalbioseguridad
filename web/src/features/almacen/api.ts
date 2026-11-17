@@ -48,16 +48,10 @@ export const useGuardarInsumo = () =>
     id ? api.patch(`/almacen/insumos/${id}`, body) : api.post('/almacen/insumos', body),
   )
 
-export type OperacionAlmacen =
-  | 'SI_UNIFORME'
-  | 'CARGA_UNIFORME'
-  | 'ENTREGA'
-  | 'RECEPCION'
-  | 'LAVADO'
-  | 'SI_INSUMO'
-  | 'CARGA_INSUMO'
-  | 'CONSUMO'
+export type OperacionAlmacen = 'ENVIO' | 'SI' | 'CONSUMO' | 'ENTREGA' | 'DEVOLUCION' | 'LAVADO' | 'RELEVO'
+export type CategoriaAlmacen = 'UNIFORME' | 'IMPLEMENTO' | 'INSUMO'
 
+export type GranjaAlm = { codigo: string; nombre: string }
 export type ResumenGranja = { granja_cod: string; granja_nombre: string; limpio: number; lavadero: number }
 export type InsumoGranja = {
   granja_cod: string
@@ -69,10 +63,11 @@ export type InsumoGranja = {
   categoria: string
   stock: number
 }
-export type FrenteAlmacen = 'LIMPIO' | 'LAVADERO' | 'INSUMOS'
+export type FrenteAlmacen = 'LIMPIO' | 'LAVADERO' | 'INSUMOS' | 'IMPLEMENTOS'
 export type KardexMov = {
   id: number
   frente: FrenteAlmacen
+  categoria: CategoriaAlmacen
   tipo: 'SI' | 'E' | 'S'
   granja_cod: string
   granja_nombre: string
@@ -96,15 +91,20 @@ export function useStockGranja(granja: string) {
   return useQuery({
     queryKey: ['almacen', 'granja', granja],
     queryFn: () =>
-      api.get<{ resumen: ResumenGranja[]; insumos: InsumoGranja[] }>('/almacen/granja/stock', { granja_cod: granja }),
+      api.get<{
+        granjas: GranjaAlm[]
+        resumen: ResumenGranja[]
+        implementos: InsumoGranja[]
+        insumos: InsumoGranja[]
+      }>('/almacen/granja/stock', { granja_cod: granja }),
   })
 }
 
-export function useKardexGranja(params: { granja_cod: string; frente?: string; desde?: string; hasta?: string }) {
+export function useKardexGranja(params: { granja_cod: string; categoria?: string; desde?: string; hasta?: string }, enabled = true) {
   return useQuery({
     queryKey: ['almacen', 'kardex', params],
     queryFn: () => api.get<{ items: KardexMov[] }>('/almacen/granja/kardex', params),
-    enabled: params.granja_cod !== '',
+    enabled,
   })
 }
 
@@ -115,13 +115,14 @@ export function useMovimientoGranja() {
       granja_cod: string
       fecha: string
       cantidad: number
-      ropa_tipo: number
-      almacen: string
-      insumo_id: number
+      categoria: CategoriaAlmacen
       item: string
-      frente: FrenteAlmacen
       dni: string
-      observacion: string
+      personal_id: number
+      dni_sale: string
+      dni_entra: string
+      personal_id_sale: number
+      personal_id_entra: number
       origen: 'web' | 'app'
     }) => api.post('/almacen/granja/movimientos', b),
   )

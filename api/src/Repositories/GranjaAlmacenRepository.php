@@ -29,7 +29,7 @@ final class GranjaAlmacenRepository
                        IFNULL(i.unidad, \'\') AS unidad,
                        IFNULL(i.categoria, \'\') AS categoria
                   FROM bio_almacen_mov m
-                  LEFT JOIN bio_insumo i ON m.frente = \'INSUMOS\' AND i.id = m.item
+                  LEFT JOIN bio_insumo i ON (m.frente = \'INSUMOS\' OR m.frente = \'IMPLEMENTOS\') AND i.id = m.item
                  WHERE (? = \'\' OR m.granja_cod = ?)
                  GROUP BY m.granja_cod, m.frente, m.item, i.codigo, i.nombre, i.unidad, i.categoria';
         $st = $this->pdo->prepare($sql);
@@ -50,29 +50,79 @@ final class GranjaAlmacenRepository
         return round((float) $st->fetchColumn(), 2);
     }
 
-    public function insumoExiste(int $id): bool
+    /** @return string IMPLEMENTO, INSUMO o vacío */
+    public function claseInsumo(int $id): string
     {
-        $st = $this->pdo->prepare('SELECT 1 FROM bio_insumo WHERE id = ? LIMIT 1');
+        $st = $this->pdo->prepare('SELECT categoria FROM bio_insumo WHERE id = ? AND estado = \'ACTIVO\' LIMIT 1');
         $st->execute([$id]);
+        $cat = $st->fetchColumn();
+        if ($cat === false) {
+            return '';
+        }
+        if ($cat === 'EPP' || $cat === 'INDUMENTARIA') {
+            return 'IMPLEMENTO';
+        }
+        if ($cat === 'DESINFECTANTE' || $cat === 'OTRO') {
+            return 'INSUMO';
+        }
 
-        return (bool) $st->fetchColumn();
+        return '';
+    }
+
+    /**
+     * Granjas del personal de la empresa (base o asignación).
+     *
+     * @return list<string>
+     */
+    public function granjasEmpresa(int $empresaId): array
+    {
+        $sql = 'SELECT DISTINCT codigo FROM (
+                    SELECT TRIM(granja_base_cod) AS codigo
+                      FROM bio_personal
+                     WHERE empresa_id = ? AND estado = \'ACTIVO\' AND TRIM(granja_base_cod) <> \'\'
+                    UNION
+                    SELECT TRIM(pt.granja_cod) AS codigo
+                      FROM bio_asignacion a
+                      INNER JOIN bio_personal p ON p.id = a.personal_id
+                      INNER JOIN bio_puntos pt ON pt.id = a.punto_id
+                     WHERE p.empresa_id = ? AND p.estado = \'ACTIVO\' AND TRIM(pt.granja_cod) <> \'\'
+                ) g
+                WHERE codigo <> \'\'
+                ORDER BY codigo';
+        $st = $this->pdo->prepare($sql);
+        $st->execute([$empresaId, $empresaId]);
+        $out = [];
+        foreach ($st->fetchAll() as $row) {
+            $out[] = (string) $row['codigo'];
+        }
+
+        return $out;
     }
 
     /**
      * @return array{id: int, dni: string, nombre: string}|null
      */
-    public function personal(int $id, string $dni): ?array
+    public function personalDeGranja(string $granja, int $empresaId, int $id, string $dni): ?array
     {
         if ($id <= 0 && $dni === '') {
             return null;
         }
-        $st = $this->pdo->prepare(
-            'SELECT id, dni, TRIM(CONCAT(nombres, \' \', apellidos)) AS nombre
-               FROM bio_personal
-              WHERE (? > 0 AND id = ?) OR (? <> \'\' AND dni = ?)
-              LIMIT 1'
-        );
-        $st->execute([$id, $id, $dni, $dni]);
+        $sql = 'SELECT p.id, p.dni, TRIM(CONCAT(p.nombres, \' \', p.apellidos)) AS nombre
+                  FROM bio_personal p
+                 WHERE p.estado = \'ACTIVO\'
+                   AND (? = 0 OR p.empresa_id = ?)
+                   AND ((? > 0 AND p.id = ?) OR (? <> \'\' AND p.dni = ?))
+                   AND (
+                        TRIM(p.granja_base_cod) = ?
+                        OR p.id IN (
+                            SELECT a.personal_id FROM bio_asignacion a
+                              INNER JOIN bio_puntos pt ON pt.id = a.punto_id
+                             WHERE TRIM(pt.granja_cod) = ?
+                        )
+                   )
+                 LIMIT 1';
+        $st = $this->pdo->prepare($sql);
+        $st->execute([$empresaId, $empresaId, $id, $id, $dni, $dni, $granja, $granja]);
         $row = $st->fetch();
         if ($row === false) {
             return null;
@@ -86,24 +136,37 @@ final class GranjaAlmacenRepository
     }
 
     /**
+     * @param list<string>|null $codigos null = todas
      * @return list<array<string, mixed>>
      */
-    public function movimientos(string $granja): array
+    public function movimientos(string $granja, ?array $codigos): array
     {
-        $st = $this->pdo->prepare(
-            'SELECT m.id, m.frente, m.tipo, m.granja_cod, m.item, m.cantidad, m.operacion,
-                    m.par_id, m.personal_id, m.dni, m.usuario_registro, m.origen, m.fecha, m.observacion,
-                    IFNULL(i.codigo, \'\') AS codigo,
-                    IFNULL(i.nombre, \'\') AS insumo_nombre,
-                    IFNULL(i.unidad, \'\') AS unidad,
-                    IFNULL(TRIM(CONCAT(p.nombres, \' \', p.apellidos)), \'\') AS trabajador
-               FROM bio_almacen_mov m
-               LEFT JOIN bio_insumo i ON m.frente = \'INSUMOS\' AND i.id = m.item
-               LEFT JOIN bio_personal p ON p.id = m.personal_id
-              WHERE m.granja_cod = ?
-              ORDER BY m.fecha, m.id'
-        );
-        $st->execute([$granja]);
+        $where = '1=1';
+        $params = [];
+        if ($granja !== '') {
+            $where = 'm.granja_cod = ?';
+            $params = [$granja];
+        } elseif (is_array($codigos)) {
+            if ($codigos === []) {
+                return [];
+            }
+            $marks = implode(',', array_fill(0, count($codigos), '?'));
+            $where = 'm.granja_cod IN (' . $marks . ')';
+            $params = $codigos;
+        }
+        $sql = 'SELECT m.id, m.frente, m.tipo, m.granja_cod, m.item, m.cantidad, m.operacion,
+                       m.par_id, m.personal_id, m.dni, m.usuario_registro, m.origen, m.fecha, m.observacion,
+                       IFNULL(i.codigo, \'\') AS codigo,
+                       IFNULL(i.nombre, \'\') AS insumo_nombre,
+                       IFNULL(i.unidad, \'\') AS unidad,
+                       IFNULL(TRIM(CONCAT(p.nombres, \' \', p.apellidos)), \'\') AS trabajador
+                  FROM bio_almacen_mov m
+                  LEFT JOIN bio_insumo i ON (m.frente = \'INSUMOS\' OR m.frente = \'IMPLEMENTOS\') AND i.id = m.item
+                  LEFT JOIN bio_personal p ON p.id = m.personal_id
+                 WHERE ' . $where . '
+                 ORDER BY m.fecha, m.id';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
 
         return $st->fetchAll();
     }
@@ -137,9 +200,9 @@ final class GranjaAlmacenRepository
         return (int) $this->pdo->lastInsertId();
     }
 
-    public function marcarPar(int $a, int $b): void
+    public function fijarPar(int $id): void
     {
-        $st = $this->pdo->prepare('UPDATE bio_almacen_mov SET par_id = ? WHERE id = ? OR id = ?');
-        $st->execute([$a, $a, $b]);
+        $st = $this->pdo->prepare('UPDATE bio_almacen_mov SET par_id = ? WHERE id = ?');
+        $st->execute([$id, $id]);
     }
 }
