@@ -48,6 +48,8 @@ export const router = createBrowserRouter(
             { path: '/capacitaciones', element: <CapacitacionesPage /> },
             { path: '/capacitaciones/catalogo', element: <CapacitacionCatalogoPage /> },
             { path: '/almacen', element: <AlmacenPage /> },
+            { path: '/almacen/kardex', element: <AlmacenPage /> },
+            { path: '/almacen/registro', element: <AlmacenPage /> },
             { path: '/almacen/insumos', element: <InsumosPage /> },
             { path: '/articulos-ingreso', element: <ArticulosIngresoPage /> },
             { path: '/almacen/stock', element: <StockPage /> },

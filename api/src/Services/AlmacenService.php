@@ -9,9 +9,11 @@ use Bio\Api\Repositories\EmpresaRepository;
 use Bio\Api\Support\UserContext;
 
 /**
- * Control de almacén: GRS entrega insumos a la empresa contratista; la empresa confirma la recepción
- * (con cantidades recibidas y anomalías) y registra consumos. Stock = recibido − consumido;
- * faltante = saldo inicial − stock (si es positivo).
+ * Entrega GRS → proveedor/tercero. Fuera de uso (rutas comentadas en RouteRegistrar). No borrar.
+ * El almacén vigente por granja está en GranjaAlmacenService.
+ *
+ * Control anterior: GRS entregaba insumos a la empresa contratista; la empresa confirmaba la recepción
+ * y registraba consumos. Stock = recibido − consumido; faltante = saldo inicial − stock.
  */
 final class AlmacenService
 {
@@ -360,22 +362,31 @@ final class AlmacenService
 
     // ---------- Campo (móvil empresa) ----------
 
-    /** @param array<string, string> $q */
+    /**
+     * Contexto de campo para la app (una sola sección Almacén).
+     * La entrega GRS → proveedor/tercero ya no arma este payload.
+     *
+     * @param array<string, string> $q
+     */
     public function campoContext(array $q): array
     {
-        $stock = $this->stock($q);
-        $entregas = $this->entregas(array_merge($q, ['estado' => 'PENDIENTE']));
-
-        return [
-            'ok' => true,
-            'data' => [
-                'actor' => UserContext::actor(),
-                'empresa_id' => UserContext::empresaId(),
-                'stock' => $stock['data']['items'] ?? [],
-                'entregas_pendientes' => $entregas['data']['items'] ?? [],
-                'insumos' => $this->insumos(false)['data']['items'] ?? [],
-            ],
-        ];
+        /*
+         * Entrega GRS → proveedor/tercero. Fuera de uso. No borrar.
+         *
+         * $stock = $this->stock($q);
+         * $entregas = $this->entregas(array_merge($q, ['estado' => 'PENDIENTE']));
+         * return [
+         *     'ok' => true,
+         *     'data' => [
+         *         'actor' => UserContext::actor(),
+         *         'empresa_id' => UserContext::empresaId(),
+         *         'stock' => $stock['data']['items'] ?? [],
+         *         'entregas_pendientes' => $entregas['data']['items'] ?? [],
+         *         'insumos' => $this->insumos(false)['data']['items'] ?? [],
+         *     ],
+         * ];
+         */
+        return (new GranjaAlmacenService())->contexto($q);
     }
 
     // ---------- Relevo ----------

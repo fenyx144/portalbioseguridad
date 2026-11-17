@@ -241,47 +241,60 @@ final class RouteRegistrar
         $r->add(['PATCH'], '/almacen/insumos/{id}', function (array $p) {
             AlmacenController::actualizarInsumo($p);
         });
-        $r->add(['POST'], '/almacen/saldos', function () {
-            AlmacenController::guardarSaldos();
-        });
-        $r->add(['GET'], '/almacen/entregas', function () {
-            AlmacenController::entregas();
-        });
-        $r->add(['POST'], '/almacen/entregas', function () {
-            AlmacenController::crearEntrega();
-        });
-        $r->add(['GET'], '/almacen/entregas/{id}', function (array $p) {
-            AlmacenController::entrega($p);
-        });
-        $r->add(['POST'], '/almacen/entregas/{id}/recepcion', function (array $p) {
-            AlmacenController::recepcion($p);
-        });
-        $r->add(['POST'], '/almacen/entregas/{id}/anular', function (array $p) {
-            AlmacenController::anular($p);
-        });
-        $r->add(['GET'], '/almacen/consumos', function () {
-            AlmacenController::consumos();
-        });
-        $r->add(['POST'], '/almacen/consumos', function () {
-            AlmacenController::crearConsumo();
-        });
-        $r->add(['DELETE'], '/almacen/consumos/{id}', function (array $p) {
-            AlmacenController::eliminarConsumo($p);
-        });
-        $r->add(['GET'], '/almacen/stock', function () {
-            AlmacenController::stock();
-        });
+        /*
+         * Entrega GRS → proveedor/tercero. Fuera de uso. No borrar.
+         *
+         * $r->add(['POST'], '/almacen/saldos', function () {
+         *     AlmacenController::guardarSaldos();
+         * });
+         * $r->add(['GET'], '/almacen/entregas', function () {
+         *     AlmacenController::entregas();
+         * });
+         * $r->add(['POST'], '/almacen/entregas', function () {
+         *     AlmacenController::crearEntrega();
+         * });
+         * $r->add(['GET'], '/almacen/entregas/{id}', function (array $p) {
+         *     AlmacenController::entrega($p);
+         * });
+         * $r->add(['POST'], '/almacen/entregas/{id}/recepcion', function (array $p) {
+         *     AlmacenController::recepcion($p);
+         * });
+         * $r->add(['POST'], '/almacen/entregas/{id}/anular', function (array $p) {
+         *     AlmacenController::anular($p);
+         * });
+         * $r->add(['GET'], '/almacen/consumos', function () {
+         *     AlmacenController::consumos();
+         * });
+         * $r->add(['POST'], '/almacen/consumos', function () {
+         *     AlmacenController::crearConsumo();
+         * });
+         * $r->add(['DELETE'], '/almacen/consumos/{id}', function (array $p) {
+         *     AlmacenController::eliminarConsumo($p);
+         * });
+         * $r->add(['GET'], '/almacen/stock', function () {
+         *     AlmacenController::stock();
+         * });
+         * $r->add(['GET'], '/almacen/relevos', function () {
+         *     AlmacenController::relevos();
+         * });
+         * $r->add(['GET'], '/almacen/relevos/{id}', function (array $p) {
+         *     AlmacenController::relevo($p);
+         * });
+         * $r->add(['POST'], '/almacen/relevos', function () {
+         *     AlmacenController::crearRelevo();
+         * });
+         */
         $r->add(['GET'], '/almacen/campo-context', function () {
             AlmacenController::campoContext();
         });
-        $r->add(['GET'], '/almacen/relevos', function () {
-            AlmacenController::relevos();
+        $r->add(['GET'], '/almacen/granja/stock', function () {
+            AlmacenController::stockGranja();
         });
-        $r->add(['GET'], '/almacen/relevos/{id}', function (array $p) {
-            AlmacenController::relevo($p);
+        $r->add(['GET'], '/almacen/granja/kardex', function () {
+            AlmacenController::kardexGranja();
         });
-        $r->add(['POST'], '/almacen/relevos', function () {
-            AlmacenController::crearRelevo();
+        $r->add(['POST'], '/almacen/granja/movimientos', function () {
+            AlmacenController::movimientoGranja();
         });
 
         $r->add(['GET'], '/reportes/personal-registrado', function () {

@@ -2268,3 +2268,14 @@ button.bio-rt-faltachip:hover { filter: brightness(1.1); }
   background: var(--ix2-surface-2);
 }
 .bio-foto-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+/* Contenido de Almacén en verde. El sidebar y el login siguen con el azul de --ix2-accent. */
+.bio-almacen {
+  --ix2-accent: #15803d;
+  --ix2-accent-2: #166534;
+  --ix2-accent-soft: #ecfdf3;
+  --ix2-accent-ring: rgba(21, 128, 61, 0.28);
+  --ix2-accent-deep: #14532d;
+  --ix2-accent-light: #4ade80;
+  --color-bio-accent: #15803d;
+}

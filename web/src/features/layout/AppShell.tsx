@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTheme } from '../../shared/hooks/useTheme'
 import { useAuth } from '../auth/useAuth'
 import { navGroups } from './navConfig'
@@ -24,6 +24,7 @@ export function AppShell() {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [pinned, setPinned] = useState(() => localStorage.getItem(PIN_KEY) !== '0')
   const [groupsOpen, setGroupsOpen] = useState<Record<string, boolean>>(readGroups)
   const isGrs = (user?.actor ?? 'grs') === 'grs'
@@ -106,7 +107,9 @@ export function AppShell() {
                           to={item.to}
                           end={item.end}
                           title={item.label}
-                          className={({ isActive }) => `bio-nav-link ${isActive ? 'active' : ''}`}
+                          className={({ isActive }) =>
+                            `bio-nav-link ${(item.match ? item.match(pathname) : isActive) ? 'active' : ''}`
+                          }
                         >
                           <i className={`fa-solid ${item.icon} bio-nav-ic`} aria-hidden />
                           <span className="bio-nav-label">{item.label}</span>

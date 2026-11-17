@@ -3,6 +3,7 @@ export type NavItem = {
   label: string
   icon: string
   end?: boolean
+  match?: (path: string) => boolean
   labelEmpresa?: string
   grsOnly?: boolean
   empresaOnly?: boolean
@@ -40,7 +41,13 @@ export const navGroups: NavGroup[] = [
       { to: '/personal', label: 'Personal', labelEmpresa: 'Mi personal', icon: 'fa-users', end: true },
       { to: '/planificacion', label: 'Planificación', icon: 'fa-calendar-week' },
       { to: '/capacitaciones', label: 'Capacitaciones', icon: 'fa-graduation-cap', end: true },
-      { to: '/almacen', label: 'Almacén', labelEmpresa: 'Almacén', icon: 'fa-warehouse', end: true },
+      {
+        to: '/almacen',
+        label: 'Almacén',
+        labelEmpresa: 'Almacén',
+        icon: 'fa-warehouse',
+        match: (p) => p === '/almacen' || p === '/almacen/stock' || p === '/almacen/kardex' || p === '/almacen/registro',
+      },
     ],
   },
 ]
@@ -56,6 +63,8 @@ const titles: [string, string, string][] = [
   ['/capacitaciones/catalogo', 'Configuración', 'Catálogo de cursos'],
   ['/almacen/insumos', 'Configuración', 'Catálogo de insumos'],
   ['/articulos-ingreso', 'Configuración', 'Artículos en ingreso'],
+  ['/almacen/kardex', 'Almacén', 'Kardex'],
+  ['/almacen/registro', 'Almacén', 'Registro'],
   ['/almacen/stock', 'Almacén', 'Stock'],
   ['/almacen', 'Almacén', 'Almacén'],
   ['/personal', 'Personal', 'Personal'],

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bio\Api\Controllers;
 
 use Bio\Api\Services\AlmacenService;
+use Bio\Api\Services\GranjaAlmacenService;
 
 final class AlmacenController extends BaseController
 {
@@ -25,6 +26,12 @@ final class AlmacenController extends BaseController
         self::auth();
         self::respond((new AlmacenService())->guardarInsumo((int) ($p['id'] ?? 0), self::body()), 422);
     }
+
+    /*
+     * Entrega GRS → proveedor/tercero. Fuera de uso: las rutas están comentadas
+     * en RouteRegistrar. No borrar estos métodos (saldos, entregas, recepción,
+     * anulación, consumos por empresa, stock por empresa y relevos).
+     */
 
     public static function guardarSaldos(): void
     {
@@ -108,5 +115,23 @@ final class AlmacenController extends BaseController
     {
         $user = self::auth();
         self::respond((new AlmacenService())->crearRelevo(self::body(), $user['codigo']), 422);
+    }
+
+    public static function stockGranja(): void
+    {
+        self::auth();
+        self::respond((new GranjaAlmacenService())->stock(self::query()));
+    }
+
+    public static function kardexGranja(): void
+    {
+        self::auth();
+        self::respond((new GranjaAlmacenService())->kardex(self::query()));
+    }
+
+    public static function movimientoGranja(): void
+    {
+        $user = self::auth();
+        self::respond((new GranjaAlmacenService())->registrar(self::body(), $user['codigo']), 422);
     }
 }

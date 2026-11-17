@@ -1,163 +1,190 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ApiClientError, api } from '../../shared/api/client'
-import { formatDate } from '../../shared/lib/dates'
+import { formatDate, todayIso } from '../../shared/lib/dates'
 import { Button } from '../../shared/ui/Button'
-import { ConfirmDialog } from '../../shared/ui/ConfirmDialog'
 import { EmptyState, Kpi, PageHero } from '../../shared/ui/Kpi'
-import { NoticeDialog } from '../../shared/ui/NoticeDialog'
-import { Tabs } from '../../shared/ui/Tabs'
 import { useAuth } from '../auth/useAuth'
 import { almacenTabs, ProcessTabs } from '../layout/processNav'
-import { estadosEntrega, fmt, useAnularEntrega, useConsumos, useEliminarConsumo, useEntregas, type Entrega } from './api'
-import { ConsumoModal } from './components/ConsumoModal'
-import { EntregaDetalleModal } from './components/EntregaDetalleModal'
-import { EntregaFormModal } from './components/EntregaFormModal'
+import {
+  fmt,
+  useInsumos,
+  useKardexGranja,
+  useMovimientoGranja,
+  useStockGranja,
+  type OperacionAlmacen,
+} from './api'
+
+const GRANJA_KEY = 'bio.almacen.granja'
+
+const operaciones: { value: OperacionAlmacen; label: string }[] = [
+  { value: 'SI_UNIFORME', label: 'Saldo inicial de uniforme' },
+  { value: 'CARGA_UNIFORME', label: 'Carga de uniforme' },
+  { value: 'ENTREGA', label: 'Entrega de uniforme' },
+  { value: 'RECEPCION', label: 'Recepción de uniforme' },
+  { value: 'LAVADO', label: 'Lavado' },
+  { value: 'SI_INSUMO', label: 'Saldo inicial de insumo' },
+  { value: 'CARGA_INSUMO', label: 'Carga de insumo' },
+  { value: 'CONSUMO', label: 'Consumo de insumo' },
+]
+
+const conceptos: Record<string, string> = {
+  CARGA: 'Carga',
+  ENTREGA: 'Entrega',
+  RECEPCION: 'Recepción',
+  LAVADO: 'Lavado',
+  CONSUMO: 'Consumo',
+}
+
+function vistaDe(path: string): 'stock' | 'kardex' | 'registro' {
+  if (path.endsWith('/kardex')) return 'kardex'
+  if (path.endsWith('/registro')) return 'registro'
+  return 'stock'
+}
 
 export function AlmacenPage() {
+  const { pathname } = useLocation()
+  const vista = vistaDe(pathname)
   const { user } = useAuth()
-  const esGrs = user?.actor !== 'empresa'
-  const [tab, setTab] = useState<'entregas' | 'consumos'>('entregas')
-  const [estado, setEstado] = useState(esGrs ? '' : 'PENDIENTE')
-  const [empresaId, setEmpresaId] = useState('')
-  const [nueva, setNueva] = useState(false)
-  const [consumo, setConsumo] = useState(false)
-  const [detalle, setDetalle] = useState<number | null>(null)
-  const [anular, setAnular] = useState<Entrega | null>(null)
-  const [notice, setNotice] = useState<{ msg: string; kind: 'success' | 'error' } | null>(null)
+  const [granja, setGranja] = useState(() => sessionStorage.getItem(GRANJA_KEY) ?? '')
+  const [almacen, setAlmacen] = useState('')
+  const [clase, setClase] = useState('todos')
+  const [desde, setDesde] = useState('')
+  const [hasta, setHasta] = useState('')
+  const [op, setOp] = useState<OperacionAlmacen>('ENTREGA')
+  const [fecha, setFecha] = useState(todayIso())
+  const [cantidad, setCantidad] = useState('1')
+  const [ropa, setRopa] = useState('2')
+  const [deposito, setDeposito] = useState('LIMPIO')
+  const [insumoId, setInsumoId] = useState('')
+  const [dni, setDni] = useState('')
+  const [trabajador, setTrabajador] = useState('')
+  const [obs, setObs] = useState('')
+  const [aviso, setAviso] = useState<{ ok: boolean; msg: string } | null>(null)
 
-  const entregas = useEntregas({ estado, empresa_id: empresaId })
-  const todas = useEntregas({ empresa_id: empresaId })
-  const consumos = useConsumos(tab === 'consumos')
-  const empresas = useQuery({
-    queryKey: ['empresas'],
-    queryFn: () => api.get<{ items: { id: number; razon_social: string }[] }>('/empresas'),
-    enabled: esGrs,
+  useEffect(() => {
+    sessionStorage.setItem(GRANJA_KEY, granja)
+  }, [granja])
+
+  const granjas = useQuery({
+    queryKey: ['granjas'],
+    queryFn: () => api.get<{ items: { codigo: string; nombre: string }[] }>('/granjas'),
   })
-  const anularM = useAnularEntrega()
-  const eliminarConsumo = useEliminarConsumo()
-  const all = todas.data?.items ?? []
-  const cuenta = (e: string) => all.filter((x) => x.estado === e).length
-  const items = entregas.data?.items ?? []
-  const err = (e: unknown) => setNotice({ kind: 'error', msg: e instanceof ApiClientError ? e.message : 'Error' })
+  const stock = useStockGranja(granja)
+  const kardex = useKardexGranja({ granja_cod: granja, almacen, desde, hasta, clase })
+  const insumos = useInsumos()
+  const guardar = useMovimientoGranja()
+
+  const resumen = useMemo(() => stock.data?.resumen ?? [], [stock.data])
+  const limpio = resumen.reduce((s, r) => s + Number(r.limpio), 0)
+  const lavadero = resumen.reduce((s, r) => s + Number(r.lavadero), 0)
+  const esInsumo = op === 'SI_INSUMO' || op === 'CARGA_INSUMO' || op === 'CONSUMO'
+  const esPersona = op === 'ENTREGA' || op === 'RECEPCION'
+  const esCargaUnif = op === 'SI_UNIFORME' || op === 'CARGA_UNIFORME'
+  const nombreGranja = (cod: string, nombre: string) => (nombre && nombre !== cod ? `${cod} - ${nombre}` : cod)
+
+  const registrar = () => {
+    setAviso(null)
+    if (!granja) {
+      setAviso({ ok: false, msg: 'Granja requerida' })
+      return
+    }
+    guardar.mutate(
+      {
+        operacion: op,
+        granja_cod: granja,
+        fecha,
+        cantidad: Number(cantidad),
+        ropa_tipo: Number(ropa),
+        almacen: deposito,
+        insumo_id: Number(insumoId || 0),
+        dni,
+        trabajador,
+        observacion: obs,
+      },
+      {
+        onSuccess: () => {
+          setAviso({ ok: true, msg: 'Registrado' })
+          setObs('')
+        },
+        onError: (e) => setAviso({ ok: false, msg: e instanceof ApiClientError ? e.message : 'Error' }),
+      },
+    )
+  }
 
   return (
-    <div style={{ display: 'grid', gap: '1rem' }}>
-      <PageHero
-        icon="fa-warehouse"
-        title={esGrs ? 'Entregas de insumos' : 'Almacén'}
-        subtitle={esGrs ? undefined : user?.empresa_nombre ?? undefined}
-        actions={
-          <>
-            {esGrs ? (
-              <Button icon="fa-plus" onClick={() => setNueva(true)}>
-                Nueva entrega
-              </Button>
-            ) : null}
-            <Button variant="soft" icon="fa-arrow-right-from-bracket" onClick={() => setConsumo(true)}>
-              Registrar consumo
-            </Button>
-          </>
-        }
-      />
+    <div className="bio-almacen" style={{ display: 'grid', gap: '1rem' }}>
+      <PageHero icon="fa-warehouse" title="Almacén" subtitle={user?.actor === 'empresa' ? user.empresa_nombre : undefined} />
       <ProcessTabs items={almacenTabs} label="Almacén" />
-      <div className="bio-kpis">
-        <Kpi icon="fa-hourglass-half" label="Pendientes de recepción" value={cuenta('PENDIENTE')} tone={cuenta('PENDIENTE') ? 'warn' : undefined} />
-        <Kpi icon="fa-circle-check" label="Recibidas" value={cuenta('RECIBIDA')} />
-        <Kpi icon="fa-triangle-exclamation" label="Con anomalías" value={cuenta('OBSERVADA')} tone={cuenta('OBSERVADA') ? 'danger' : undefined} />
+
+      <div className="bio-card bio-filter-bar">
+        <label style={{ flex: '1 1 16rem' }}>
+          <span className="bio-label">Granja</span>
+          <select className="bio-select" value={granja} onChange={(e) => setGranja(e.target.value)}>
+            <option value="">{vista === 'stock' ? 'Todas' : 'Seleccionar'}</option>
+            {(granjas.data?.items ?? []).map((g) => (
+              <option key={g.codigo} value={g.codigo}>
+                {g.codigo} - {g.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
-      <Tabs
-        items={[
-          {
-            value: 'entregas',
-            label: esGrs ? 'Entregas' : 'Entregas recibidas',
-            icon: 'fa-truck-ramp-box',
-            count: !esGrs && cuenta('PENDIENTE') ? cuenta('PENDIENTE') : undefined,
-          },
-          { value: 'consumos', label: 'Consumos', icon: 'fa-arrow-right-from-bracket' },
-        ]}
-        value={tab}
-        onChange={setTab}
-      />
-
-      {tab === 'entregas' && (
+      {vista === 'stock' ? (
         <>
-          <div className="bio-card bio-filter-bar">
-            {esGrs ? (
-              <label style={{ flex: '1 1 14rem' }}>
-                <span className="bio-label">Empresa</span>
-                <select className="bio-select" value={empresaId} onChange={(e) => setEmpresaId(e.target.value)}>
-                  <option value="">Todas</option>
-                  {(empresas.data?.items ?? []).map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.razon_social}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            <label>
-              <span className="bio-label">Estado</span>
-              <select className="bio-select" value={estado} onChange={(e) => setEstado(e.target.value)}>
-                <option value="">Todos</option>
-                {Object.entries(estadosEntrega).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="bio-kpis">
+            <Kpi icon="fa-shirt" label="Almacén limpio" value={fmt(limpio)} tone="ok" />
+            <Kpi icon="fa-soap" label="Lavadero" value={fmt(lavadero)} />
           </div>
           <div className="bio-card" style={{ padding: 0 }}>
-            {items.length === 0 ? (
-              <EmptyState icon="fa-truck-ramp-box">{entregas.isLoading ? 'Cargando…' : 'Sin entregas'}</EmptyState>
+            {resumen.length === 0 ? (
+              <EmptyState icon="fa-warehouse">{stock.isLoading ? 'Cargando…' : 'Sin stock'}</EmptyState>
             ) : (
               <div className="bio-table-wrap">
                 <table className="bio-table">
                   <thead>
                     <tr>
-                      <th>#</th>
-                      <th>Fecha</th>
-                      {esGrs ? <th>Empresa</th> : null}
                       <th>Granja</th>
-                      <th className="num">Ítems</th>
-                      <th className="num">Cantidad</th>
-                      <th>Estado</th>
-                      <th>Anomalía</th>
-                      <th />
+                      <th className="num">Almacén limpio</th>
+                      <th className="num">Lavadero</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((e) => (
-                      <tr key={e.id} style={{ cursor: 'pointer' }} onClick={() => setDetalle(e.id)}>
-                        <td>{e.id}</td>
-                        <td>{formatDate(e.fecha)}</td>
-                        {esGrs ? <td>{e.empresa_razon_social}</td> : null}
-                        <td>{e.granja_cod || '—'}</td>
-                        <td className="num">{e.num_items}</td>
-                        <td className="num">{fmt(e.total_cantidad)}</td>
-                        <td>
-                          <span className={`bio-badge ${estadosEntrega[e.estado].badge}`}>{estadosEntrega[e.estado].label}</span>
-                        </td>
-                        <td style={{ maxWidth: '16rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={e.anomalia}>
-                          {e.anomalia || '—'}
-                        </td>
-                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(ev) => ev.stopPropagation()}>
-                          <button type="button" className="bio-icon-action" title="Ver detalle" onClick={() => setDetalle(e.id)}>
-                            <i className="fa-solid fa-eye" aria-hidden />
-                          </button>
-                          {!esGrs && e.estado === 'PENDIENTE' ? (
-                            <Button size="sm" icon="fa-check" onClick={() => setDetalle(e.id)}>
-                              Confirmar
-                            </Button>
-                          ) : null}
-                          {esGrs && e.estado === 'PENDIENTE' ? (
-                            <button type="button" className="bio-icon-action danger" title="Anular" onClick={() => setAnular(e)}>
-                              <i className="fa-solid fa-ban" aria-hidden />
-                            </button>
-                          ) : null}
-                        </td>
+                    {resumen.map((r) => (
+                      <tr key={r.granja_cod}>
+                        <td>{nombreGranja(r.granja_cod, r.granja_nombre)}</td>
+                        <td className="num">{fmt(r.limpio)}</td>
+                        <td className="num">{fmt(r.lavadero)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <div className="bio-card" style={{ padding: 0 }}>
+            {(stock.data?.insumos ?? []).length === 0 ? (
+              <EmptyState icon="fa-box">{stock.isLoading ? 'Cargando…' : 'Sin insumos'}</EmptyState>
+            ) : (
+              <div className="bio-table-wrap">
+                <table className="bio-table">
+                  <thead>
+                    <tr>
+                      {!granja ? <th>Granja</th> : null}
+                      <th>Insumo</th>
+                      <th>Unidad</th>
+                      <th className="num">Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(stock.data?.insumos ?? []).map((r) => (
+                      <tr key={`${r.granja_cod}-${r.insumo_id}`}>
+                        {!granja ? <td>{nombreGranja(r.granja_cod, r.granja_nombre)}</td> : null}
+                        <td>{r.nombre || r.codigo}</td>
+                        <td>{r.unidad}</td>
+                        <td className="num">{fmt(r.stock)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -166,85 +193,153 @@ export function AlmacenPage() {
             )}
           </div>
         </>
-      )}
-      {tab === 'consumos' && (
-        <div className="bio-card" style={{ padding: 0 }}>
-          {(consumos.data?.items ?? []).length === 0 ? (
-            <EmptyState icon="fa-arrow-right-from-bracket">{consumos.isLoading ? 'Cargando…' : 'Sin consumos'}</EmptyState>
-          ) : (
-            <div className="bio-table-wrap">
-              <table className="bio-table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Insumo</th>
-                    <th className="num">Cantidad</th>
-                    {esGrs ? <th>Empresa</th> : null}
-                    <th>Granja</th>
-                    <th>Observación</th>
-                    {!esGrs ? <th /> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(consumos.data?.items ?? []).map((c) => (
-                    <tr key={c.id}>
-                      <td>{formatDate(c.fecha)}</td>
-                      <td>{c.insumo_nombre}</td>
-                      <td className="num">
-                        {fmt(c.cantidad)} {c.unidad}
-                      </td>
-                      {esGrs ? <td>{c.empresa_razon_social ?? '—'}</td> : null}
-                      <td>{c.granja_cod || '—'}</td>
-                      <td>{c.observacion || '—'}</td>
-                      {!esGrs ? (
-                        <td style={{ textAlign: 'right' }}>
-                          <button type="button" className="bio-icon-action danger" title="Eliminar" onClick={() => eliminarConsumo.mutate(c.id, { onError: err })}>
-                            <i className="fa-solid fa-trash" aria-hidden />
-                          </button>
-                        </td>
-                      ) : null}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {esGrs ? (
-        <EntregaFormModal
-          open={nueva}
-          onClose={() => setNueva(false)}
-          onSaved={(id) => {
-            setNueva(false)
-            setNotice({ kind: 'success', msg: `Entrega #${id} registrada.` })
-          }}
-        />
       ) : null}
-      <ConsumoModal open={consumo} onClose={() => setConsumo(false)} esGrs={esGrs} />
-      <EntregaDetalleModal
-        id={detalle}
-        puedeConfirmar={!esGrs}
-        onClose={() => setDetalle(null)}
-        onDone={(msg) => {
-          setDetalle(null)
-          setNotice({ kind: 'success', msg })
-        }}
-      />
-      <ConfirmDialog
-        open={anular !== null}
-        title="Anular entrega"
-        message={anular ? `#${anular.id} · ${anular.empresa_razon_social} · ${formatDate(anular.fecha)}` : ''}
-        confirmLabel="Anular"
-        onCancel={() => setAnular(null)}
-        onConfirm={() => {
-          const a = anular
-          setAnular(null)
-          if (a) anularM.mutate(a.id, { onError: err })
-        }}
-      />
-      <NoticeDialog open={notice !== null} kind={notice?.kind} message={notice?.msg ?? ''} onClose={() => setNotice(null)} />
+
+      {vista === 'kardex' ? (
+        <>
+          <div className="bio-card bio-filter-bar">
+            <label>
+              <span className="bio-label">Clase</span>
+              <select className="bio-select" value={clase} onChange={(e) => setClase(e.target.value)}>
+                <option value="todos">Todos</option>
+                <option value="uniforme">Uniformes</option>
+                <option value="insumo">Insumos</option>
+              </select>
+            </label>
+            <label>
+              <span className="bio-label">Almacén</span>
+              <select className="bio-select" value={almacen} onChange={(e) => setAlmacen(e.target.value)}>
+                <option value="">Todos</option>
+                <option value="LIMPIO">Almacén limpio</option>
+                <option value="LAVADERO">Lavadero</option>
+              </select>
+            </label>
+            <label>
+              <span className="bio-label">Desde</span>
+              <input className="bio-input" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
+            </label>
+            <label>
+              <span className="bio-label">Hasta</span>
+              <input className="bio-input" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+            </label>
+          </div>
+          <div className="bio-card" style={{ padding: 0 }}>
+            {!granja ? (
+              <EmptyState icon="fa-warehouse">Seleccionar granja</EmptyState>
+            ) : (kardex.data?.items ?? []).length === 0 ? (
+              <EmptyState icon="fa-list">{kardex.isLoading ? 'Cargando…' : 'Sin movimientos'}</EmptyState>
+            ) : (
+              <div className="bio-table-wrap">
+                <table className="bio-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Concepto</th>
+                      <th>Detalle</th>
+                      <th>Almacén</th>
+                      <th>SI/E/S</th>
+                      <th className="num">Cantidad</th>
+                      <th className="num">Stock</th>
+                      <th>Trabajador</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(kardex.data?.items ?? []).map((m) => (
+                      <tr key={`${m.clase}-${m.id}`}>
+                        <td>{formatDate(m.fecha)}</td>
+                        <td>{conceptos[m.concepto] ?? m.concepto}</td>
+                        <td>{m.clase === 'uniforme' ? m.ropa_nombre : m.insumo_nombre}</td>
+                        <td>{m.almacen_nombre || '—'}</td>
+                        <td>{m.tipo_mov}</td>
+                        <td className="num">{fmt(m.cantidad)}</td>
+                        <td className="num">{fmt(m.stock)}</td>
+                        <td>{m.trabajador || m.dni || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      ) : null}
+
+      {vista === 'registro' ? (
+        <div className="bio-card bio-card-pad" style={{ display: 'grid', gap: '0.85rem', maxWidth: '46rem' }}>
+          <div className="bio-filter-bar" style={{ padding: 0, border: 0, background: 'transparent' }}>
+            <label style={{ flex: '1 1 16rem' }}>
+              <span className="bio-label">Operación</span>
+              <select className="bio-select" value={op} onChange={(e) => setOp(e.target.value as OperacionAlmacen)}>
+                {operaciones.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="bio-label">Fecha</span>
+              <input className="bio-input" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            </label>
+            <label>
+              <span className="bio-label">Cantidad</span>
+              <input className="bio-input" type="number" min="0.01" step="0.01" value={cantidad} onChange={(e) => setCantidad(e.target.value)} />
+            </label>
+            {!esInsumo ? (
+              <label>
+                <span className="bio-label">Tipo de ropa</span>
+                <select className="bio-select" value={ropa} onChange={(e) => setRopa(e.target.value)}>
+                  <option value="2">Ropa para el proceso</option>
+                  <option value="1">Ropa de tránsito</option>
+                </select>
+              </label>
+            ) : (
+              <label style={{ flex: '1 1 16rem' }}>
+                <span className="bio-label">Insumo</span>
+                <select className="bio-select" value={insumoId} onChange={(e) => setInsumoId(e.target.value)}>
+                  <option value="">Seleccionar</option>
+                  {(insumos.data?.items ?? []).map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.nombre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {esCargaUnif ? (
+              <label>
+                <span className="bio-label">Almacén</span>
+                <select className="bio-select" value={deposito} onChange={(e) => setDeposito(e.target.value)}>
+                  <option value="LIMPIO">Almacén limpio</option>
+                  <option value="LAVADERO">Lavadero</option>
+                </select>
+              </label>
+            ) : null}
+            {esPersona ? (
+              <>
+                <label>
+                  <span className="bio-label">DNI</span>
+                  <input className="bio-input" value={dni} onChange={(e) => setDni(e.target.value)} />
+                </label>
+                <label style={{ flex: '1 1 14rem' }}>
+                  <span className="bio-label">Trabajador</span>
+                  <input className="bio-input" value={trabajador} onChange={(e) => setTrabajador(e.target.value)} />
+                </label>
+              </>
+            ) : null}
+            <label style={{ flex: '1 1 16rem' }}>
+              <span className="bio-label">Observación</span>
+              <input className="bio-input" value={obs} onChange={(e) => setObs(e.target.value)} />
+            </label>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Button icon="fa-check" onClick={registrar} disabled={guardar.isPending}>
+              Guardar
+            </Button>
+            {aviso ? <span className={`bio-badge ${aviso.ok ? 'bio-badge-ok' : 'bio-badge-danger'}`}>{aviso.msg}</span> : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

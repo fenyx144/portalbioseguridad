@@ -56,9 +56,11 @@ export const capTabs: ProcessTab[] = [
 ]
 
 export const almacenTabs: ProcessTab[] = [
-  { to: '/almacen', label: 'Registro', end: true, match: (p) => p === '/almacen' },
-  { to: '/almacen/stock', label: 'Stock' },
-  { to: '/reportes/stock-indumentaria', label: 'Indumentaria', grsOnly: true },
+  { to: '/almacen', label: 'Stock', end: true, match: (p) => p === '/almacen' || p === '/almacen/stock' },
+  { to: '/almacen/kardex', label: 'Kardex' },
+  { to: '/almacen/registro', label: 'Registro' },
+  // Entrega GRS → proveedor: reporte de indumentaria por proveedor. Fuera de uso. No borrar.
+  // { to: '/reportes/stock-indumentaria', label: 'Indumentaria', grsOnly: true },
 ]
 
 export function ProcessTabs({ items, label }: { items: ProcessTab[]; label?: string }) {

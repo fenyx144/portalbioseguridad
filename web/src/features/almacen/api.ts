@@ -149,3 +149,80 @@ export const useCrearConsumo = () =>
     }) => api.post('/almacen/consumos', b),
   )
 export const useEliminarConsumo = () => useAlmacenMutation((id: number) => api.del(`/almacen/consumos/${id}`))
+
+export type OperacionAlmacen =
+  | 'SI_UNIFORME'
+  | 'CARGA_UNIFORME'
+  | 'ENTREGA'
+  | 'RECEPCION'
+  | 'LAVADO'
+  | 'SI_INSUMO'
+  | 'CARGA_INSUMO'
+  | 'CONSUMO'
+
+export type ResumenGranja = { granja_cod: string; granja_nombre: string; limpio: number; lavadero: number }
+export type InsumoGranja = {
+  granja_cod: string
+  granja_nombre: string
+  insumo_id: number
+  codigo: string
+  nombre: string
+  unidad: string
+  categoria: string
+  stock: number
+}
+export type KardexMov = {
+  id: number
+  clase: 'uniforme' | 'insumo'
+  granja_cod: string
+  granja_nombre: string
+  fecha: string
+  concepto: string
+  almacen: string
+  almacen_nombre: string
+  tipo_mov: 'SI' | 'E' | 'S'
+  cantidad: number
+  stock: number
+  ropa_tipo: number
+  ropa_nombre: string
+  insumo_id: number
+  insumo_nombre: string
+  unidad: string
+  dni: string
+  trabajador: string
+  observacion: string
+  usuario_registro: string
+}
+
+export function useStockGranja(granja: string) {
+  return useQuery({
+    queryKey: ['almacen', 'granja', granja],
+    queryFn: () =>
+      api.get<{ resumen: ResumenGranja[]; insumos: InsumoGranja[] }>('/almacen/granja/stock', { granja_cod: granja }),
+  })
+}
+
+export function useKardexGranja(params: { granja_cod: string; almacen?: string; desde?: string; hasta?: string; clase?: string }) {
+  return useQuery({
+    queryKey: ['almacen', 'kardex', params],
+    queryFn: () => api.get<{ items: KardexMov[] }>('/almacen/granja/kardex', params),
+    enabled: params.granja_cod !== '',
+  })
+}
+
+export function useMovimientoGranja() {
+  return useAlmacenMutation(
+    (b: {
+      operacion: OperacionAlmacen
+      granja_cod: string
+      fecha: string
+      cantidad: number
+      ropa_tipo: number
+      almacen: string
+      insumo_id: number
+      dni: string
+      trabajador: string
+      observacion: string
+    }) => api.post('/almacen/granja/movimientos', b),
+  )
+}
