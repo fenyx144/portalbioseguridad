@@ -6,6 +6,7 @@ import { RequireAuth } from '../features/layout/RequireAuth'
 import { PersonalDetailPage } from '../features/personal/PersonalDetailPage'
 import { PersonalListPage } from '../features/personal/PersonalListPage'
 import { PlanificacionPage } from '../features/planificacion/PlanificacionPage'
+import { ProveedorPlanPage } from '../features/proveedor/ProveedorPlanPage'
 import { PuntosPage } from '../features/puntos/PuntosPage'
 import { ReporteAsignadoPage } from '../features/reportes/ReporteAsignadoPage'
 import { ReporteCapacitacionesPage } from '../features/reportes/ReporteCapacitacionesPage'
@@ -43,6 +44,7 @@ export const router = createBrowserRouter(
             { path: '/empresas', element: <EmpresasPage /> },
             { path: '/puntos', element: <PuntosPage /> },
             { path: '/planificacion', element: <PlanificacionPage /> },
+            { path: '/visitas-proveedor', element: <ProveedorPlanPage /> },
             { path: '/planificacion/anomalias', element: <AnomaliasPage /> },
             { path: '/capacitaciones', element: <CapacitacionesPage /> },
             { path: '/capacitaciones/catalogo', element: <CapacitacionCatalogoPage /> },

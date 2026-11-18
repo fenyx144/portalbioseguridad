@@ -40,6 +40,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: '/personal', label: 'Personal', labelEmpresa: 'Mi personal', icon: 'fa-users', end: true },
       { to: '/planificacion', label: 'Planificación', icon: 'fa-calendar-week' },
+      { to: '/visitas-proveedor', label: 'Visitas proveedor', labelEmpresa: 'Mis visitas', icon: 'fa-truck-field' },
       { to: '/capacitaciones', label: 'Capacitaciones', icon: 'fa-graduation-cap', end: true },
       {
         to: '/almacen',
@@ -68,6 +69,7 @@ const titles: [string, string, string][] = [
   ['/almacen/stock', 'Almacén', 'Stock'],
   ['/almacen', 'Almacén', 'Almacén'],
   ['/personal', 'Personal', 'Personal'],
+  ['/visitas-proveedor', 'Visitas proveedor', 'Visitas proveedor'],
   ['/planificacion/anomalias', 'Planificación', 'Anomalías'],
   ['/planificacion', 'Planificación', 'Planificación'],
   ['/capacitaciones', 'Capacitaciones', 'Capacitaciones'],

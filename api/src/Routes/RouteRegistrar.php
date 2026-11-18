@@ -14,6 +14,7 @@ use Bio\Api\Controllers\GranjaController;
 use Bio\Api\Controllers\OperacionController;
 use Bio\Api\Controllers\PersonalController;
 use Bio\Api\Controllers\PlanificacionController;
+use Bio\Api\Controllers\ProveedorPlanController;
 use Bio\Api\Controllers\PuntoController;
 use Bio\Api\Controllers\ReporteController;
 use Bio\Api\Http\Router;
@@ -230,6 +231,34 @@ final class RouteRegistrar
         });
         $r->add(['GET'], '/planificacion/cobertura-resumen', function () {
             PlanificacionController::cobertura();
+        });
+
+        $r->add(['GET'], '/proveedor/plan/contexto', function () {
+            ProveedorPlanController::contexto();
+        });
+        $r->add(['GET'], '/proveedor/plan', function () {
+            ProveedorPlanController::listar();
+        });
+        $r->add(['POST'], '/proveedor/plan', function () {
+            ProveedorPlanController::guardar();
+        });
+        $r->add(['PATCH'], '/proveedor/plan/{id}', function (array $p) {
+            ProveedorPlanController::actualizar($p);
+        });
+        $r->add(['DELETE'], '/proveedor/plan/{id}', function (array $p) {
+            ProveedorPlanController::eliminar($p);
+        });
+        $r->add(['POST'], '/proveedor/personal', function () {
+            ProveedorPlanController::guardarPersonal();
+        });
+        $r->add(['POST'], '/proveedor/personal/baja', function () {
+            ProveedorPlanController::bajaPersonal();
+        });
+        $r->add(['POST'], '/proveedor/vehiculos', function () {
+            ProveedorPlanController::guardarVehiculo();
+        });
+        $r->add(['POST'], '/proveedor/vehiculos/baja', function () {
+            ProveedorPlanController::bajaVehiculo();
         });
 
         $r->add(['GET'], '/almacen/insumos', function () {

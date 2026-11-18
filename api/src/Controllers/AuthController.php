@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bio\Api\Controllers;
 
 use Bio\Api\Http\JsonResponse;
+use Bio\Api\Support\BioseguridadAcceso;
 use Bio\Api\Support\MobileAppAuth;
 use Bio\Api\Support\Request;
 use Bio\Api\Support\SanidadAuthBridge;
@@ -33,8 +34,15 @@ final class AuthController
             ], 401);
         }
 
+        $gate = BioseguridadAcceso::admitir($result);
+        if (!$gate['ok']) {
+            JsonResponse::send(false, null, [
+                'code' => 'forbidden',
+                'message' => $gate['message'],
+            ], 403);
+        }
+        $profile = $gate['profile'];
         SessionAuth::login($result['codigo'], $result['nombre']);
-        $profile = UserContext::enrichUser($result);
         UserContext::bindSession($profile);
         JsonResponse::send(true, ['user' => $profile], null);
     }
@@ -55,7 +63,15 @@ final class AuthController
                 'message' => 'Sin sesion',
             ], 401);
         }
-        $profile = UserContext::enrichUser($user);
+        $gate = BioseguridadAcceso::admitir($user);
+        if (!$gate['ok']) {
+            SessionAuth::logout();
+            JsonResponse::send(false, null, [
+                'code' => 'forbidden',
+                'message' => $gate['message'],
+            ], 403);
+        }
+        $profile = $gate['profile'];
         UserContext::bindSession($profile);
         JsonResponse::send(true, ['user' => $profile], null);
     }
