@@ -338,6 +338,9 @@ final class RouteRegistrar
         $r->add(['GET'], '/reportes/stock-indumentaria', function () {
             ReporteController::stockIndumentariaPorProveedor();
         });
+        $r->add(['GET'], '/reportes/personal-asistencia', function () {
+            OperacionController::asistenciaPersonal();
+        });
         $r->add(['GET'], '/reportes/faltante', function () {
             OperacionController::faltante();
         });

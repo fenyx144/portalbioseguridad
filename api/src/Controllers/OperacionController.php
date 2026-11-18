@@ -80,6 +80,13 @@ final class OperacionController extends BaseController
         self::respond((new OperacionService())->actualizarAnomalia((int) ($params['id'] ?? 0), self::body()), 422);
     }
 
+    public static function asistenciaPersonal(): void
+    {
+        self::auth();
+        UserContext::requireGrs();
+        self::respond((new OperacionService())->reporteAsistenciaPersonal(self::query()), 422);
+    }
+
     public static function faltante(): void
     {
         self::auth();

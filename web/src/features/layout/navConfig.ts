@@ -77,6 +77,7 @@ const titles: [string, string, string][] = [
   ['/reportes/personal-asignado', 'Planificación', 'Personal asignado'],
   ['/reportes/capacitaciones', 'Capacitaciones', 'Capacitaciones'],
   ['/reportes/stock-indumentaria', 'Almacén', 'Indumentaria'],
+  ['/reportes/personal-asistencia', 'Personal', 'Asistencias'],
   ['/reportes/faltante', 'Personal', 'Personal faltante'],
   ['/reportes/horarios', 'Personal', 'Horarios'],
   ['/reportes/alcoholemia', 'Personal', 'Alcoholemia'],

@@ -264,6 +264,180 @@ final class OperacionService
     }
 
     /** @param array<string, string> $q */
+    public function reporteAsistenciaPersonal(array $q): array
+    {
+        UserContext::requireGrs();
+        $desde = $this->fechaReporte($q['desde'] ?? '', date('Y-m-01'));
+        $hasta = $this->fechaReporte($q['hasta'] ?? '', date('Y-m-d'));
+        if ($desde === '' || $hasta === '') {
+            return ['ok' => false, 'error' => ['code' => 'validation', 'message' => 'Fechas inválidas']];
+        }
+        if ($desde > $hasta) {
+            $tmp = $desde;
+            $desde = $hasta;
+            $hasta = $tmp;
+        }
+        $tol = isset($q['tolerancia']) && $q['tolerancia'] !== ''
+            ? max(0, (int) $q['tolerancia'])
+            : $this->repo->toleranciaMinutos();
+        $f = [
+            'desde' => $desde,
+            'hasta' => $hasta,
+            'empresa_id' => trim((string) ($q['empresa_id'] ?? '')),
+            'granja' => trim((string) ($q['granja'] ?? '')),
+            'q' => trim((string) ($q['q'] ?? '')),
+        ];
+        $porAsig = [];
+        $sueltas = [];
+        foreach ($this->repo->entradasPeriodo($f) as $e) {
+            $hora = substr((string) $e['marcado_en'], 11, 8);
+            if ($hora === '') {
+                continue;
+            }
+            $aid = (int) ($e['asignacion_id'] ?? 0);
+            $pid = (int) ($e['personal_id'] ?? 0);
+            $dia = substr((string) $e['marcado_en'], 0, 10);
+            $g = trim((string) ($e['granja_cod'] ?? ''));
+            if ($aid > 0) {
+                $porAsig[$aid][] = $hora;
+            } elseif ($pid > 0 && $dia !== '') {
+                $sueltas[$pid . '|' . $dia][] = ['h' => $hora, 'g' => $g];
+            }
+        }
+        $trab = [];
+        $kpis = ['planificados' => 0, 'asistencias' => 0, 'tardanzas' => 0, 'faltas' => 0, 'alcoholemias' => 0];
+        foreach ($this->repo->asignacionesPeriodo($f) as $a) {
+            $pid = (int) $a['personal_id'];
+            $dia = substr((string) $a['fecha'], 0, 10);
+            $id = (int) $a['id'];
+            $granja = trim((string) $a['granja_cod']);
+            $horas = $porAsig[$id] ?? [];
+            if ($horas === []) {
+                foreach ($sueltas[$pid . '|' . $dia] ?? [] as $suelta) {
+                    if ($suelta['g'] === '' || $suelta['g'] === $granja) {
+                        $horas[] = $suelta['h'];
+                    }
+                }
+            }
+            $fila = $this->filaTrabajador($trab, $a);
+            $fila['planificados']++;
+            $kpis['planificados']++;
+            if ($granja !== '' && !in_array($granja, $fila['granjas'], true)) {
+                $fila['granjas'][] = $granja;
+            }
+            if ($horas === []) {
+                $fila['faltas']++;
+                $kpis['faltas']++;
+            } else {
+                $fila['asistencias']++;
+                $kpis['asistencias']++;
+                $marca = $horas[0];
+                foreach ($horas as $h) {
+                    if ($h < $marca) {
+                        $marca = $h;
+                    }
+                }
+                $inicio = (string) ($a['hora_inicio'] ?? '');
+                if ($inicio !== '' && $marca > $this->sumarMinutos($inicio, $tol)) {
+                    $fila['tardanzas']++;
+                    $kpis['tardanzas']++;
+                }
+            }
+            $trab[$pid] = $fila;
+        }
+        foreach ($this->repo->alcoholemiasPositivas($f) as $al) {
+            $pid = (int) $al['personal_id'];
+            $n = (int) $al['n'];
+            if (!isset($trab[$pid])) {
+                $trab[$pid] = [
+                    'personal_id' => $pid,
+                    'dni' => (string) $al['dni'],
+                    'nombres' => (string) $al['nombres'],
+                    'apellidos' => (string) $al['apellidos'],
+                    'empresa_codigo' => (string) ($al['empresa_codigo'] ?? ''),
+                    'empresa_razon_social' => (string) ($al['empresa_razon_social'] ?? ''),
+                    'granjas' => [],
+                    'planificados' => 0,
+                    'asistencias' => 0,
+                    'tardanzas' => 0,
+                    'faltas' => 0,
+                    'alcoholemias' => 0,
+                ];
+            }
+            $trab[$pid]['alcoholemias'] += $n;
+            $g = (string) ($al['granja_cod'] ?? '');
+            if ($g !== '' && !in_array($g, $trab[$pid]['granjas'], true)) {
+                $trab[$pid]['granjas'][] = $g;
+            }
+            $kpis['alcoholemias'] += $n;
+        }
+        $items = array_values($trab);
+        usort($items, static function (array $a, array $b): int {
+            $c = strcmp((string) $a['apellidos'], (string) $b['apellidos']);
+            if ($c !== 0) {
+                return $c;
+            }
+
+            return strcmp((string) $a['nombres'], (string) $b['nombres']);
+        });
+        foreach ($items as $i => $row) {
+            $items[$i]['granjas'] = implode(', ', $row['granjas']);
+        }
+
+        return [
+            'ok' => true,
+            'data' => [
+                'desde' => $desde,
+                'hasta' => $hasta,
+                'tolerancia_min' => $tol,
+                'kpis' => $kpis + ['trabajadores' => count($items)],
+                'items' => $items,
+            ],
+        ];
+    }
+
+    /** @param array<int, array<string, mixed>> $trab @param array<string, mixed> $a @return array<string, mixed> */
+    private function filaTrabajador(array $trab, array $a): array
+    {
+        $pid = (int) $a['personal_id'];
+        if (isset($trab[$pid])) {
+            return $trab[$pid];
+        }
+
+        return [
+            'personal_id' => $pid,
+            'dni' => (string) $a['dni'],
+            'nombres' => (string) $a['nombres'],
+            'apellidos' => (string) $a['apellidos'],
+            'empresa_codigo' => (string) ($a['empresa_codigo'] ?? ''),
+            'empresa_razon_social' => (string) ($a['empresa_razon_social'] ?? ''),
+            'granjas' => [],
+            'planificados' => 0,
+            'asistencias' => 0,
+            'tardanzas' => 0,
+            'faltas' => 0,
+            'alcoholemias' => 0,
+        ];
+    }
+
+    private function fechaReporte(string $raw, string $defecto): string
+    {
+        $f = trim($raw);
+        if ($f === '') {
+            return $defecto;
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $f)) {
+            return '';
+        }
+        $p = explode('-', $f);
+        if (!checkdate((int) $p[1], (int) $p[2], (int) $p[0])) {
+            return '';
+        }
+
+        return $f;
+    }
+
+    /** @param array<string, string> $q */
     public function reporteHorarios(array $q): array
     {
         $desde = $q['desde'] ?? date('Y-m-d');

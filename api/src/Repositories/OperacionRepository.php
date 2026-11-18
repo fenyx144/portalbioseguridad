@@ -319,6 +319,115 @@ final class OperacionRepository
         return $st->fetchAll() ?: [];
     }
 
+    /**
+     * @param array{desde: string, hasta: string, empresa_id: string, granja: string, q: string} $f
+     * @return list<array<string, mixed>>
+     */
+    public function asignacionesPeriodo(array $f): array
+    {
+        $where = ['a.fecha >= ?', 'a.fecha <= ?'];
+        $params = [$f['desde'], $f['hasta']];
+        if ($f['empresa_id'] !== '') {
+            $where[] = 'per.empresa_id = ?';
+            $params[] = (int) $f['empresa_id'];
+        }
+        if ($f['granja'] !== '') {
+            $where[] = 'TRIM(pu.granja_cod) = ?';
+            $params[] = $f['granja'];
+        }
+        if ($f['q'] !== '') {
+            $where[] = '(per.dni LIKE ? OR per.nombres LIKE ? OR per.apellidos LIKE ?)';
+            $like = '%' . $f['q'] . '%';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+        $sql = 'SELECT a.id, a.personal_id, a.fecha, a.turno_cod,
+                       t.hora_inicio,
+                       TRIM(pu.granja_cod) AS granja_cod,
+                       per.dni, per.nombres, per.apellidos,
+                       e.codigo AS empresa_codigo, e.razon_social AS empresa_razon_social
+                  FROM bio_asignacion a
+                  JOIN bio_personal per ON per.id = a.personal_id
+                  JOIN bio_puntos pu ON pu.id = a.punto_id
+                  LEFT JOIN bio_turno_catalogo t ON t.codigo = a.turno_cod
+                  LEFT JOIN bio_empresa e ON e.id = per.empresa_id
+                 WHERE ' . implode(' AND ', $where) . '
+                 ORDER BY per.apellidos, per.nombres, a.fecha, a.id';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+
+        return $st->fetchAll() ?: [];
+    }
+
+    /**
+     * @param array{desde: string, hasta: string, empresa_id: string, granja: string, q: string} $f
+     * @return list<array<string, mixed>>
+     */
+    public function entradasPeriodo(array $f): array
+    {
+        $where = ["s.tipo = 'ENTRADA'", 'DATE(s.marcado_en) >= ?', 'DATE(s.marcado_en) <= ?'];
+        $params = [$f['desde'], $f['hasta']];
+        if ($f['empresa_id'] !== '') {
+            $where[] = '(s.empresa_id = ? OR per.empresa_id = ?)';
+            $params[] = (int) $f['empresa_id'];
+            $params[] = (int) $f['empresa_id'];
+        }
+        if ($f['q'] !== '') {
+            $where[] = '(per.dni LIKE ? OR per.nombres LIKE ? OR per.apellidos LIKE ?)';
+            $like = '%' . $f['q'] . '%';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+        $sql = 'SELECT s.id, s.asignacion_id, s.personal_id, s.marcado_en, TRIM(s.granja_cod) AS granja_cod
+                  FROM bio_asistencia s
+                  LEFT JOIN bio_personal per ON per.id = s.personal_id
+                 WHERE ' . implode(' AND ', $where);
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+
+        return $st->fetchAll() ?: [];
+    }
+
+    /**
+     * @param array{desde: string, hasta: string, empresa_id: string, granja: string, q: string} $f
+     * @return list<array<string, mixed>>
+     */
+    public function alcoholemiasPositivas(array $f): array
+    {
+        $where = ["a.resultado = 'POSITIVO'", 'a.fecha >= ?', 'a.fecha <= ?'];
+        $params = [$f['desde'], $f['hasta']];
+        if ($f['empresa_id'] !== '') {
+            $where[] = '(a.empresa_id = ? OR per.empresa_id = ?)';
+            $params[] = (int) $f['empresa_id'];
+            $params[] = (int) $f['empresa_id'];
+        }
+        if ($f['granja'] !== '') {
+            $where[] = 'TRIM(a.granja_cod) = ?';
+            $params[] = $f['granja'];
+        }
+        if ($f['q'] !== '') {
+            $where[] = '(per.dni LIKE ? OR per.nombres LIKE ? OR per.apellidos LIKE ?)';
+            $like = '%' . $f['q'] . '%';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+        }
+        $sql = 'SELECT a.personal_id, per.dni, per.nombres, per.apellidos,
+                       e.codigo AS empresa_codigo, e.razon_social AS empresa_razon_social,
+                       TRIM(a.granja_cod) AS granja_cod, COUNT(*) AS n
+                  FROM bio_alcoholemia a
+                  JOIN bio_personal per ON per.id = a.personal_id
+                  LEFT JOIN bio_empresa e ON e.id = COALESCE(a.empresa_id, per.empresa_id)
+                 WHERE ' . implode(' AND ', $where) . '
+                 GROUP BY a.personal_id, per.dni, per.nombres, per.apellidos, e.codigo, e.razon_social, TRIM(a.granja_cod)';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+
+        return $st->fetchAll() ?: [];
+    }
+
     public function toleranciaMinutos(): int
     {
         $st = $this->pdo->query("SELECT valor FROM bio_config WHERE clave = 'asistencia_tolerancia_min' LIMIT 1");

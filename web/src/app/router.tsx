@@ -22,6 +22,7 @@ import { AlcoholemiaPage } from '../features/operacion/AlcoholemiaPage'
 import { AnomaliasPage } from '../features/operacion/AnomaliasPage'
 import { AsistenciaPage } from '../features/operacion/AsistenciaPage'
 import { RequerimientoPage } from '../features/operacion/RequerimientoPage'
+import { ReporteAsistenciaPage } from '../features/reportes/ReporteAsistenciaPage'
 import { ReporteFaltantePage } from '../features/reportes/ReporteFaltantePage'
 import { ReporteHorariosPage } from '../features/reportes/ReporteHorariosPage'
 
@@ -58,6 +59,7 @@ export const router = createBrowserRouter(
             { path: '/reportes/personal-asignado', element: <ReporteAsignadoPage /> },
             { path: '/reportes/capacitaciones', element: <ReporteCapacitacionesPage /> },
             { path: '/reportes/stock-indumentaria', element: <ReporteStockIndumentariaPage /> },
+            { path: '/reportes/personal-asistencia', element: <ReporteAsistenciaPage /> },
             { path: '/reportes/faltante', element: <ReporteFaltantePage /> },
             { path: '/reportes/horarios', element: <ReporteHorariosPage /> },
             { path: '/reportes/alcoholemia', element: <AlcoholemiaPage reporte /> },

@@ -38,6 +38,7 @@ export const personalReporteTabs: ProcessTab[] = [
     label: 'Antigüedad',
     match: (p, s) => p === '/reportes/personal-registrado' && s.includes('orden=antiguedad'),
   },
+  { to: '/reportes/personal-asistencia', label: 'Asistencias', grsOnly: true },
   { to: '/reportes/faltante', label: 'Faltante' },
   { to: '/reportes/horarios', label: 'Horarios' },
   { to: '/reportes/alcoholemia', label: 'Alcoholemia' },
